@@ -1,0 +1,46 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        
+        {
+            "type": "LuaHelper-Debug",
+            "request": "launch",
+            "name": "LuaHelper-DebugFile",
+            "luaPath": "",
+            "packagePath": [],
+            "luaFileExtension": "",
+            "connectionPort": 8818,
+            "stopOnEntry": false,
+            "useCHook": true,
+            "logLevel": 1
+        },
+        {
+            "type": "LuaHelper-Debug",
+            "request": "launch",
+            "name": "LuaHelper-Attach",
+            "cwd": "${workspaceFolder}",
+            "luaFileExtension": "",
+            "connectionPort": 8818,
+            "stopOnEntry": true,
+            "useCHook": true,
+            "autoPathMode": true
+        },
+        {
+            "name": "Love2D (node hack)",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "love",
+            "runtimeArgs": ["${workspaceFolder}"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
+        },
+        {
+            "name": "Love2D",
+            "type": "love2d",
+            "request": "launch",
+            "loveProjectPath": "${workspaceFolder}",
+            "loveExecutable": "love"
+        }
+    ]
+}

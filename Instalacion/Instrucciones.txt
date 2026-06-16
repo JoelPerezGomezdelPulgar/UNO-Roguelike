@@ -1,0 +1,23 @@
+1. Extraer zip
+2. Mover la carpeta Lua a C:\
+3. Pulsar tecla Windows
+4. Editar las variables de entorno del sistema
+5. Abrir variables de entorno
+6. En variables del sistema, doble click a path
+7. Añadir la ruta C:\lua
+8. Aceptar y guardar
+9. Abrir Powershell
+10. Ejecutar "lua" para comprobar que funciona
+11. Ejecutar love installer
+12. Pulsar tecla Windows
+13. Editar las variables de entorno del sistema
+14. Abrir variables de entorno
+15. En variables del sistema, doble click a path
+16. Añadir la ruta C:\Program Files\LOVE
+17. Aceptar y guardar
+18. Abrir Powershell
+19. Ejecutar "love" para comprobar que funciona
+20. Instalar extensiones:
+	- Lua; Sumneko
+	- Love2D Support; Pixelbyte Studios
+	- Local Lua Debugger; Tom Blind
