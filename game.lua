@@ -29,7 +29,7 @@ function game.nuevo_juego()
         lagrimas_usadas = 0,
         fase = "menu",
         turno_actual = 1,
-        aturdido = false,
+        aturdido = 0,
         veloz_activo = 0,
     }
     return state
@@ -64,6 +64,18 @@ end
 function game.turno_jugador(state, accion, datos)
     if state.fase ~= "combat" then return nil end
 
+    local inicio = combat.start_turn(state, true)
+    if inicio == "aturdido" then
+        if accion == "saltar" then
+            combat.end_turn(state)
+            game.turno_ia(state)
+            return { mensaje = "Turno saltado (aturdido)" }
+        elseif accion == "robar" then
+        combat.robar_carta(state, true)
+        end
+        return { mensaje = "Estás aturdido" }
+    end
+
     if accion == "jugar" then
         local resultado = combat.jugar_cartas(state, datos.indices)
         if resultado and resultado.dano then
@@ -81,11 +93,13 @@ function game.turno_jugador(state, accion, datos)
         return resultado
     elseif accion == "robar" then
         combat.robar_carta(state, true)
-        state.jugador.turno_ultimo = "robo"
-        -- robar consume turno (segunda roba)
-        combat.end_turn(state)
-        -- turno de IA
-        game.turno_ia(state)
+        if state.roboGratis and state.roboGratis > 0 then
+            state.roboGratis = state.roboGratis - 1
+        else
+            state.jugador.turno_ultimo = "robo"
+            combat.end_turn(state)
+            game.turno_ia(state)
+        end
         return { mensaje = "Robaste una carta" }
     elseif accion == "usar_poder" then
         return game.usar_poder(state, datos.poder_idx, datos.target)

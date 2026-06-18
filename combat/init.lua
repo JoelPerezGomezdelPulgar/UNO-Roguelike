@@ -5,7 +5,7 @@ local combat = {}
 
 function combat.init(state)
     state.turno_actual = 1
-    state.aturdido = false
+    state.aturdido = 0
     state.veloz_activo = 0
     state.golpe_decisivo = nil
     state.furia_activa = nil
@@ -19,6 +19,7 @@ function combat.init(state)
     state.danoBase = 0
     state.danoMulti = 1
     state.jugador.vida = state.jugador.vida_max
+    state.roboGratis = 0
 
     -- init hooks on relics
     for _, r in ipairs(state.relics or {}) do
@@ -57,6 +58,16 @@ function combat.init(state)
     -- Re-attach entity methods (rival may be new after avanzar_nivel)
     local game_mod = require("game")
     game_mod.init_entity_methods(state)
+
+    -- Cooldown de poderes por combate (C)
+    for _, p in ipairs(state.poderes or {}) do
+        if p.cooldown_actual and p.cooldown_actual > 0 then
+            local def = require("powers.registry")[p.id]
+            if def and def.cooldown and def.cooldown.type == "combates" then
+                p.cooldown_actual = p.cooldown_actual - 1
+            end
+        end
+    end
 end
 
 function combat.start_turn(state, es_jugador)
@@ -89,13 +100,13 @@ function combat.start_turn(state, es_jugador)
     end
 
     -- si está aturdido
-    if state.aturdido and es_jugador then
+    if state.aturdido and state.aturdido > 0 and es_jugador then
         return "aturdido"
     end
 end
 
 function combat.jugar_cartas(state, indices)
-    if state.aturdido then return { mensaje = "Estás aturdido" } end
+    if state.aturdido and state.aturdido > 0 then return { mensaje = "Estás aturdido" } end
 
     local jugador = state.jugador
     local cartas_a_jugar = {}
@@ -345,10 +356,24 @@ function combat.end_turn(state)
     state.turno_actual = state.turno_actual + 1
     state.danoBase = 0
     state.danoMulti = 1
+    state.absorcion_vida_activa = nil
+    state.furia_activa = nil
+    state.roboGratis = 0
+
+    -- Cooldown de poderes por turno (T)
+    for _, p in ipairs(state.poderes or {}) do
+        if p.cooldown_actual and p.cooldown_actual > 0 then
+            local def = require("powers.registry")[p.id]
+            if def and def.cooldown and def.cooldown.type == "turnos" then
+                p.cooldown_actual = p.cooldown_actual - 1
+            end
+        end
+    end
+    combat.mano_vacia_ataque(state)
 end
 
 function combat.mano_vacia_ataque(state)
-    if #state.jugador.mano > 0 or #state.mazo_jugador == 0 then return nil end
+    if #state.jugador.mano > 0 then return nil end
     local suma_mazo = 0
     for _, c in ipairs(state.mazo_jugador) do
         suma_mazo = suma_mazo + (c.dano_base or c.valor)
@@ -357,14 +382,15 @@ function combat.mano_vacia_ataque(state)
     state.danoBase = suma_mazo
     state.danoMulti = 10
     state.rival.vida = state.rival.vida - dano
-    state.aturdido = true
-    -- Anillo del vacío reduce aturdimiento
+    local cargas_aturdido = 2
     for _, r in ipairs(state.relics or {}) do
         if r.on_aturdimiento then
             local red = r.on_aturdimiento(state)
-            if red then -- keep aturdido for 1 turno instead of 2
-            end
+            if red then cargas_aturdido = cargas_aturdido + red end
         end
+    end
+    if cargas_aturdido > 0 then
+        state.jugador:aplicar_status("aturdido", cargas_aturdido)
     end
     return { dano = dano, mensaje = "Ataque final! " .. dano .. " daño pero aturdido 2 turnos" }
 end

@@ -173,7 +173,7 @@ function world.procesar_victoria(state)
 
     -- Reiniciar estado de combate
     state.turno_actual = 1
-    state.aturdido = false
+    state.aturdido = 0
 end
 
 function world.procesar_derrota(state)

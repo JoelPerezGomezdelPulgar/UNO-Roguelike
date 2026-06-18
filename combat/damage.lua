@@ -126,6 +126,10 @@ end
 function damage.procesar_cartas_jugadas(cartas, state)
     -- Aplicar efectos de carta individuales
     for _, c in ipairs(cartas) do
+        if state.golpe_decisivo == 5 and cartas[1] == c then
+            state.danoBase = state.danoBase + state.golpe_decisivo
+            state.golpe_decisivo = nil
+        end
         if c.efectos then
             for _, ef in ipairs(c.efectos) do
                 local ef_def = require("cards.effects")[ef]

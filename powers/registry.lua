@@ -9,7 +9,8 @@ powers.haz_oscuridad = {
     descripcion = "Inflige daño = cartas en tu mano",
     cooldown = C(1),
     activar = function(state)
-        return { dano = #state.jugador.mano * 1 }
+        state.rival.vida = math.max(0, state.rival.vida - (#state.jugador.mano * 5))
+        return { dano = #state.jugador.mano * 5 }
     end,
 }
 

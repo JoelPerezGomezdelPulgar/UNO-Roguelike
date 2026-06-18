@@ -10,7 +10,7 @@ for color_name, _ in pairs(colors) do
         color = color_name,
         dano_base = 0,
     }
-    for valor = 1, 9 do
+    for valor = 1, 1 do
         id = id + 1
         card_defs[id] = {
             id = id,

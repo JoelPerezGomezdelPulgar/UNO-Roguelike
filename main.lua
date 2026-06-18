@@ -65,7 +65,7 @@ function draw_card(x, y, carta, seleccionada, oculta, w, h)
     love.graphics.setColor(1, 1, 1)
     local font = love.graphics.getFont()
     local vs = tostring(carta.valor)
-    love.graphics.print(vs, x + w/2 - font:getWidth(vs)/2, y + 3)
+    love.graphics.print(vs, x + w / 2 - font:getWidth(vs) / 2, y + 3)
 
     if carta.efectos then
         love.graphics.setColor(1, 1, 0.3)
@@ -84,7 +84,7 @@ function draw_hp_bar(x, y, w, hp, max_hp, nombre)
     love.graphics.rectangle("fill", x, y, w * ratio, 22)
     love.graphics.setColor(1, 1, 1)
     local hp_str = math.max(0, math.floor(hp)) .. "/" .. max_hp
-    love.graphics.print(hp_str, x + w/2 - love.graphics.getFont():getWidth(hp_str)/2, y + 4)
+    love.graphics.print(hp_str, x + w / 2 - love.graphics.getFont():getWidth(hp_str) / 2, y + 4)
 end
 
 function draw_button(x, y, w, h, texto, enabled)
@@ -92,7 +92,7 @@ function draw_button(x, y, w, h, texto, enabled)
     love.graphics.rectangle("fill", x, y, w, h, 4, 4)
     love.graphics.setColor(1, 1, 1, enabled and 1 or 0.5)
     local tw = love.graphics.getFont():getWidth(texto)
-    love.graphics.print(texto, x + w/2 - tw/2, y + h/2 - 8)
+    love.graphics.print(texto, x + w / 2 - tw / 2, y + h / 2 - 8)
 end
 
 function love.draw()
@@ -152,7 +152,7 @@ function draw_combat()
     local rx, ry = 630, 160
     for i, c in ipairs(state.rival.mano) do
         local mostrar = mostrar_mano_rival or state.ver_mano_rival
-        draw_card(rx + (i-1) * 55, ry, c, false, not mostrar)
+        draw_card(rx + (i - 1) * 55, ry, c, false, not mostrar)
         if i > 7 then break end
     end
 
@@ -171,7 +171,7 @@ function draw_combat()
     love.graphics.setColor(1, 1, 1)
     local mazo_count = #state.mazo_jugador
     local mc_str = tostring(mazo_count) .. " cartas"
-    love.graphics.print(mc_str, 460 + CARD_W/2 - love.graphics.getFont():getWidth(mc_str)/2, 260 + CARD_H/2 - 8)
+    love.graphics.print(mc_str, 460 + CARD_W / 2 - love.graphics.getFont():getWidth(mc_str) / 2, 260 + CARD_H / 2 - 8)
 
     -- Mano del jugador
     love.graphics.setColor(1, 1, 1)
@@ -181,10 +181,14 @@ function draw_combat()
     local sy = 460
     for i, carta in ipairs(state.jugador.mano) do
         local sel = false
-        for _, si in ipairs(selected) do if si == i then sel = true; break end end
-        draw_card(sx + (i-1)*(CARD_W + CARD_GAP), sy, carta, sel, false)
+        for _, si in ipairs(selected) do
+            if si == i then
+                sel = true; break
+            end
+        end
+        draw_card(sx + (i - 1) * (CARD_W + CARD_GAP), sy, carta, sel, false)
         love.graphics.setColor(0.8, 0.8, 0.8)
-        love.graphics.print(tostring(i), sx + (i-1)*(CARD_W + CARD_GAP) + 2, sy + CARD_H - 14)
+        love.graphics.print(tostring(i), sx + (i - 1) * (CARD_W + CARD_GAP) + 2, sy + CARD_H - 14)
     end
 
     -- Botones
@@ -194,10 +198,12 @@ function draw_combat()
     draw_button(bx, by + 80, 100, 30, "Poderes", #state.poderes > 0)
     draw_button(bx, by + 120, 100, 30, "Objetos", #state.objetos > 0)
 
-    if state.aturdido then
+    if state.aturdido and state.aturdido > 0 then
         love.graphics.setColor(1, 0.3, 0.3)
-        love.graphics.print("ATURDIDO", 400, 300)
+        love.graphics.print("ATURDIDO (" .. state.aturdido .. " turno(s))", 400, 300)
         love.graphics.setColor(1, 1, 1)
+        draw_button(bx, by + 160, 100, 30, "Saltar turno", true)
+        state.aturdido = state.aturdido - 1
     end
 
     -- Ver mano rival toggle
@@ -219,7 +225,7 @@ function draw_tienda()
         love.graphics.rectangle("fill", px, py, 250, 60, 4, 4)
         love.graphics.setColor(1, 1, 1)
         love.graphics.print((i) .. ". " .. (item.nombre or item.id), px + 10, py + 5)
-        love.graphics.print((item.descripcion or ""), px + 10, py + 25, 230)
+        love.graphics.print((item.descripcion or ""), px + 10, py + 25)
         love.graphics.print("Precio: " .. prod.precio, px + 10, py + 43)
         love.graphics.setColor(0.3, 0.7, 0.3)
         love.graphics.rectangle("fill", px + 190, py + 40, 50, 20, 3, 3)
@@ -228,7 +234,8 @@ function draw_tienda()
         py = py + 70
     end
 
-    draw_button(800, 100, 120, 30, "Reroll (" .. state.shop.precio_reroll_base + (state.shop.rerolls or 0) * 1 .. " oro)", true)
+    draw_button(800, 100, 120, 30, "Reroll (" .. state.shop.precio_reroll_base + (state.shop.rerolls or 0) * 1 .. " oro)",
+        true)
     draw_button(800, 140, 120, 30, "Siguiente", true)
 
     if state.shop.cuartel then
@@ -239,7 +246,8 @@ function draw_tienda()
             love.graphics.setColor(0.2, 0.2, 0.3)
             love.graphics.rectangle("fill", 100, cy, 400, 40, 4, 4)
             love.graphics.setColor(1, 1, 1)
-            love.graphics.print(i .. ". " .. ser.nombre .. " (" .. ser.tipo .. "): " .. (ser.descripcion or ""), 110, cy + 5)
+            love.graphics.print(i .. ". " .. ser.nombre .. " (" .. ser.tipo .. "): " .. (ser.descripcion or ""), 110,
+                cy + 5)
             cy = cy + 45
         end
     end
@@ -257,7 +265,8 @@ function draw_game_over()
     love.graphics.setColor(1, 0.3, 0.3)
     love.graphics.printf("GAME OVER", 0, 250, 1000, "center")
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf("Mundo " .. (state.mundo_actual or 1) .. " - Nivel " .. (state.nivel_actual or 1), 0, 300, 1000, "center")
+    love.graphics.printf("Mundo " .. (state.mundo_actual or 1) .. " - Nivel " .. (state.nivel_actual or 1), 0, 300, 1000,
+        "center")
     love.graphics.printf("Presiona ESPACIO para reiniciar", 0, 350, 1000, "center")
 end
 
@@ -281,7 +290,8 @@ function draw_powers_panel()
 
         -- Nombre
         love.graphics.setColor(listo and 1 or 0.6, listo and 1 or 0.6, listo and 1 or 0.6)
-        love.graphics.print((d and d.nombre or p.id) .. (listo and "" or " [CD:" .. p.cooldown_actual .. "]"), px + 4, py + 2)
+        love.graphics.print((d and d.nombre or p.id) .. (listo and "" or " [CD:" .. p.cooldown_actual .. "]"), px + 4,
+            py + 2)
 
         -- Descripcion (truncada)
         local desc = (d and d.descripcion or "")
@@ -290,7 +300,7 @@ function draw_powers_panel()
         love.graphics.print(desc, px + 4, py + 18, pw - 8)
 
         -- Boton activar
-        local bx = px + pw/2 - 40
+        local bx = px + pw / 2 - 40
         local by = py + ph + 2
         love.graphics.setColor(listo and 0.2 or 0.15, listo and 0.5 or 0.15, listo and 0.2 or 0.15)
         love.graphics.rectangle("fill", bx, by, 80, bth, 3, 3)
@@ -386,12 +396,14 @@ function handle_combat_click(mx, my)
     -- Card clicks in player hand
     local sx, sy = 20, 460
     for i, _ in ipairs(state.jugador.mano) do
-        local cx = sx + (i-1)*(CARD_W + CARD_GAP)
+        local cx = sx + (i - 1) * (CARD_W + CARD_GAP)
         local cy = sy
         if mx >= cx and mx <= cx + CARD_W and my >= cy and my <= cy + CARD_H then
             local found = nil
             for idx, si in ipairs(selected) do
-                if si == i then found = idx; break end
+                if si == i then
+                    found = idx; break
+                end
             end
             if found then
                 table.remove(selected, found)
@@ -407,7 +419,7 @@ function handle_combat_click(mx, my)
     local ppy = 100
     for i, p in ipairs(state.poderes) do
         local listo = not p.cooldown_actual or p.cooldown_actual <= 0
-        local pbx = 20 + ppw/2 - 40
+        local pbx = 20 + ppw / 2 - 40
         local pby = ppy + pph + 2
         if mx >= pbx and mx <= pbx + 80 and my >= pby and my <= pby + pbth and listo then
             local resultado = game.usar_poder(state, i)
@@ -444,7 +456,12 @@ function handle_combat_click(mx, my)
             local txt = "Poderes:\n"
             for i, p in ipairs(state.poderes) do
                 local d = defs[p.id]
-                txt = txt .. i .. ". " .. (d and d.nombre or p.id) .. (p.cooldown_actual and p.cooldown_actual > 0 and " [CD:"..p.cooldown_actual.."]" or " [LISTO]") .. "\n"
+                txt = txt ..
+                    i ..
+                    ". " ..
+                    (d and d.nombre or p.id) ..
+                    (p.cooldown_actual and p.cooldown_actual > 0 and " [CD:" .. p.cooldown_actual .. "]" or " [LISTO]") ..
+                    "\n"
             end
             love.system.setClipboardText(txt) -- quick hack
             mensaje = "Poderes copiados al portapapeles. Usa 1-9 para activar"
@@ -462,6 +479,15 @@ function handle_combat_click(mx, my)
             love.system.setClipboardText(txt)
             mensaje = "Objetos copiados al portapapeles. Usa 0 para abrir inventario"
             mensaje_timer = 180
+        end
+    end
+    -- Saltar turno (aturdido)
+    if state.aturdido and state.aturdido > 0 then
+        if mx >= bx and mx <= bx + 100 and my >= by + 160 and my <= by + 190 then
+            local resultado = game.turno_jugador(state, "saltar")
+            mensaje = resultado and resultado.mensaje or ""
+            mensaje_timer = 120
+            selected = {}
         end
     end
 end
@@ -546,6 +572,31 @@ function love.keypressed(key)
             selected = {}
         end
     end
+
+    if key:find("f") then
+        local n = tonumber(key:sub(2))
+        local ids = {
+            [1] = "haz_luz",
+            [2] = "haz_oscuridad",
+            [3] = "absorcion_vida",
+            [4] = "furia_berserker",
+            [5] = "golpe_decisivo",
+            [6] = "rayo_electricidad",
+            [7] = "gas_venenoso",
+            [8] = "bola_fuego",
+            [9] = "martillo_juicio",
+            [10] = "invocacion_menor",
+        }
+        local id = ids[n]
+        if id and state.fase == "combat" then
+            local defs = require("powers.registry")
+            if defs[id] then
+                table.insert(state.poderes, { id = id, cooldown_actual = 0 })
+                mensaje = "DEBUG: Poder '" .. (defs[id].nombre or id) .. "' añadido"
+                mensaje_timer = 180
+            end
+        end
+    end
 end
 
 function love.update(dt)
@@ -569,12 +620,4 @@ function love.update(dt)
         end
     end
 
-    -- Recargar cooldowns de poderes
-    if state.poderes then
-        for _, p in ipairs(state.poderes) do
-            if p.cooldown_actual and p.cooldown_actual > 0 then
-                p.cooldown_actual = p.cooldown_actual - 1
-            end
-        end
-    end
 end

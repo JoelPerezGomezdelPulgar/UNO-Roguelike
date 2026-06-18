@@ -88,11 +88,11 @@ status_effects.aturdido = {
     nombre = "Aturdido",
     max_cargas = nil,
     on_turn_start = function(state, cargas, portador)
-        state.aturdido = true
+        state.aturdido = cargas
         return cargas - 1
     end,
     on_end = function(state, cargas, portador)
-        if cargas <= 0 then state.aturdido = false end
+        if cargas <= 0 then state.aturdido = 0 end
     end,
 }
 
