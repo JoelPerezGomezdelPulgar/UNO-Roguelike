@@ -21,10 +21,18 @@ function game.nuevo_juego()
         oro = 10,
         comida = 0,
         -- Colecciones
-        reliquias = {},
+        relics = {},
         poderes = {},
         objetos = {},
         seres = {},
+        -- Panel de reliquias
+        relic_offset = 0,
+        relic_slot_w = 100,
+        relic_panel_x = 20,
+        relic_panel_y = 80,
+        relic_panel_w = 450,
+        relic_dragging = nil,
+        relic_drag_start_x = nil,
         -- Flags
         lagrimas_usadas = 0,
         fase = "menu",
@@ -51,7 +59,7 @@ function game.iniciar_partida(state)
     state.jugador.vida = 100
     state.jugador.vida_max = 100
     state.oro = 10
-    state.reliquias = {}
+    state.relics = {}
     state.poderes = {}
     state.objetos = {}
     state.seres = {}

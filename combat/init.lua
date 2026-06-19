@@ -134,15 +134,6 @@ function combat.jugar_cartas(state, indices)
     local suma_dano = damage.calcular_dano(cartas_a_jugar, state)
     state.danoBase = suma_dano
 
-    -- Primer carta: golpe decisivo
-    if state.golpe_decisivo then
-        suma_dano = suma_dano + state.golpe_decisivo
-        state.golpe_decisivo = nil
-    end
-    if state.aquiles_primera and cartas_a_jugar[1] then
-        suma_dano = suma_dano + state.aquiles_primera
-    end
-
     -- Calcular multiplicador
     local mult = damage.calcular_multiplicador(cartas_a_jugar)
     mult = mult * damage.calcular_mult_final(state, cartas_a_jugar)

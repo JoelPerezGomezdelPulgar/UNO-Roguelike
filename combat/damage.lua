@@ -13,11 +13,11 @@ function damage.calcular_multiplicador(cartas)
     end
     if #valores == 3 then
         if colores[1] == colores[2] and colores[2] == colores[3] and
-           valores[1] + 1 == valores[2] and valores[2] + 1 == valores[3] then
+            valores[1] + 1 == valores[2] and valores[2] + 1 == valores[3] then
             return 5
         end
         if valores[1] == valores[2] and valores[2] == valores[3] and
-           colores[1] == colores[2] and colores[2] == colores[3] then
+            colores[1] == colores[2] and colores[2] == colores[3] then
             return 4
         end
         if valores[1] == valores[2] and valores[2] == valores[3] then return 3 end
@@ -60,6 +60,10 @@ function damage.calcular_dano(cartas, state)
         if state.puno_avaricia then dmg = dmg + math.floor((state.oro or 0) / 4) end
         -- Aquiles: primera carta
         if state.aquiles_primera and cartas[1] == c then dmg = dmg + state.aquiles_primera end
+        if state.golpe_decisivo and cartas[1] == c then
+            dmg = dmg + state.golpe_decisivo
+            state.golpe_decisivo = nil
+        end
         -- Atalanta: daño por turno
         if state.atalanta_dano_por_turno then dmg = dmg + state.atalanta_dano_por_turno * state.turno_actual end
         -- Hércules: por roja en mano
@@ -117,7 +121,9 @@ function damage.calcular_mult_final(state, cartas)
     -- Poseidón: mult azul si hay azul
     if state.poseidon_mult_azul then
         for _, c in ipairs(cartas) do
-            if c.color == "Azul" then mult = mult * state.poseidon_mult_azul; break end
+            if c.color == "Azul" then
+                mult = mult * state.poseidon_mult_azul; break
+            end
         end
     end
     return mult
@@ -126,10 +132,6 @@ end
 function damage.procesar_cartas_jugadas(cartas, state)
     -- Aplicar efectos de carta individuales
     for _, c in ipairs(cartas) do
-        if state.golpe_decisivo == 5 and cartas[1] == c then
-            state.danoBase = state.danoBase + state.golpe_decisivo
-            state.golpe_decisivo = nil
-        end
         if c.efectos then
             for _, ef in ipairs(c.efectos) do
                 local ef_def = require("cards.effects")[ef]

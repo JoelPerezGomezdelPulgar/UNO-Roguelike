@@ -203,11 +203,70 @@ function draw_combat()
         love.graphics.print("ATURDIDO (" .. state.aturdido .. " turno(s))", 400, 300)
         love.graphics.setColor(1, 1, 1)
         draw_button(bx, by + 160, 100, 30, "Saltar turno", true)
-        state.aturdido = state.aturdido - 1
     end
 
     -- Ver mano rival toggle
     if state.ver_mano_rival then mostrar_mano_rival = true end
+
+    -- Panel de reliquias
+    draw_relic_panel()
+end
+
+function draw_relic_panel()
+    if not state.relics or #state.relics == 0 then return end
+
+    local px = state.relic_panel_x
+    local py = state.relic_panel_y
+    local pw = state.relic_panel_w
+    local psh = 60
+    local psw = state.relic_slot_w
+    local offset = state.relic_offset or 0
+
+    -- Fondo del panel
+    love.graphics.setColor(0.15, 0.15, 0.2)
+    love.graphics.rectangle("fill", px, py, pw, psh, 4, 4)
+    love.graphics.setColor(0.7, 0.7, 0.7)
+    love.graphics.print("Reliquias", px + 4, py - 16)
+
+    -- Clip al area del panel
+    love.graphics.push()
+    love.graphics.setScissor(px, py, pw, psh)
+
+    for i, r in ipairs(state.relics) do
+        local rx = px + (i - 1) * psw - offset
+        if rx + psw > px and rx < px + pw then
+            local rb = r.id and require("relics.registry")[r.id] or r
+
+            -- Slot de reliquia
+            love.graphics.setColor(0.25, 0.2, 0.3)
+            love.graphics.rectangle("fill", rx + 2, py + 2, psw - 4, psh - 4, 4, 4)
+
+            -- Borde si es la primera (activa)
+            if i == 1 then
+                love.graphics.setLineWidth(2)
+                love.graphics.setColor(1, 0.8, 0.2)
+                love.graphics.rectangle("line", rx + 2, py + 2, psw - 4, psh - 4, 4, 4)
+                love.graphics.setLineWidth(1)
+            end
+
+            -- Nombre (truncado)
+            love.graphics.setColor(1, 1, 1)
+            local nombre = (rb.nombre or r.id or "?")
+            love.graphics.print(nombre, rx + 4, py + 8, psw - 8)
+
+            -- Descripcion corta
+            love.graphics.setColor(0.7, 0.7, 0.7)
+            local desc = (rb.descripcion or "")
+            if #desc > 30 then desc = desc:sub(1, 27) .. "..." end
+            love.graphics.print(desc, rx + 4, py + 28, psw - 8)
+
+            -- Indice
+            love.graphics.setColor(0.5, 0.5, 0.5)
+            love.graphics.print(tostring(i), rx + psw - 16, py + 2)
+        end
+    end
+
+    love.graphics.pop()
 end
 
 function draw_tienda()
@@ -380,6 +439,36 @@ function love.mousepressed(mx, my, button)
     end
 end
 
+function love.mousemoved(mx, my)
+    if not state.dragging_relic then return end
+    mx = (mx - ox) / s
+    local px = state.relic_panel_x
+    local psw = state.relic_slot_w
+    local offset = state.relic_offset or 0
+    local target_idx = math.floor((mx - px + offset) / psw) + 1
+    if target_idx >= 1 and target_idx <= #state.relics and target_idx ~= state.dragging_relic then
+        local r = table.remove(state.relics, state.dragging_relic)
+        table.insert(state.relics, target_idx, r)
+        state.dragging_relic = target_idx
+    end
+end
+
+function love.mousereleased(mx, my, button)
+    if button == 1 then
+        state.dragging_relic = nil
+    end
+end
+
+function love.wheelmoved(x, y)
+    if state.fase ~= "combat" then return end
+    local px = state.relic_panel_x
+    local py = state.relic_panel_y
+    local pw = state.relic_panel_w
+    local psw = state.relic_slot_w
+    local max_offset = math.max(0, #(state.relics or {}) * psw - pw)
+    state.relic_offset = math.max(0, math.min(max_offset, (state.relic_offset or 0) - y * 50))
+end
+
 function handle_combat_click(mx, my)
     if state.mostrando_mazo then
         state.mostrando_mazo = false
@@ -488,6 +577,21 @@ function handle_combat_click(mx, my)
             mensaje = resultado and resultado.mensaje or ""
             mensaje_timer = 120
             selected = {}
+        end
+    end
+    -- Click en panel de reliquias (drag & drop)
+    if state.relics and #state.relics > 0 then
+        local px = state.relic_panel_x
+        local py = state.relic_panel_y
+        local pw = state.relic_panel_w
+        local psh = 60
+        if mx >= px and mx <= px + pw and my >= py and my <= py + psh then
+            local offset = state.relic_offset or 0
+            local idx = math.floor((mx - px + offset) / state.relic_slot_w) + 1
+            if idx >= 1 and idx <= #state.relics then
+                state.dragging_relic = idx
+                state.drag_start_x = mx
+            end
         end
     end
 end

@@ -164,7 +164,7 @@ end
 function determine_type(item)
     if item.cooldown then return "poderes"
     elseif item.usar then return "objetos"
-    else return "reliquias" end
+    else return "relics" end
 end
 
 return shop
