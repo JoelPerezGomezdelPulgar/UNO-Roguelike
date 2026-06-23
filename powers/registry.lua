@@ -88,6 +88,7 @@ powers.cuchilla_hidraulica = {
     cooldown = T(6),
     activar = function(state)
         state.rival:aplicar_status("mojado", 5)
+        state.rival.vida = state.rival.vida - 20
         return { dano = 20 }
     end,
 }
@@ -118,6 +119,7 @@ powers.bola_fuego = {
     cooldown = T(6),
     activar = function(state)
         state.rival:aplicar_status("quemado", 5)
+        state.rival.vida = state.rival.vida - 20
         return { dano = 20 }
     end,
 }
@@ -192,13 +194,14 @@ powers.escarcha = {
 
 powers.martillo_juicio = {
     id = "martillo_juicio", nombre = "Martillo del juicio",
-    descripcion = "20 × nivel del mundo de daño",
+    descripcion = "20 x nivel del mundo de daño",
     cooldown = T(5),
     activar = function(state)
+        state.rival.vida = state.rival.vida - (20 * (state.mundo_nivel or 1))
         return { dano = 20 * (state.mundo_nivel or 1) }
     end,
 }
-
+---------------------------------------------------------------- HACEN FALTA LOS SERES ----------------------------------------------------------------
 powers.invocacion_menor = {
     id = "invocacion_menor", nombre = "Invocación menor",
     descripcion = "Invoca un ser de nivel 1 temporal",
@@ -207,6 +210,8 @@ powers.invocacion_menor = {
         return { type = "invocar_ser", nivel = 1, temporal = true }
     end,
 }
+
+---------------------------------------------------------------- HACEN FALTA LOS SERES ----------------------------------------------------------------
 
 powers.entrenamiento = {
     id = "entrenamiento", nombre = "Entrenamiento",
@@ -220,6 +225,8 @@ powers.entrenamiento = {
         return { mensaje = "Selecciona un ser" }
     end,
 }
+
+---------------------------------------------------------------- HACEN FALTA LOS SERES ----------------------------------------------------------------
 
 powers.redistribucion = {
     id = "redistribucion", nombre = "Redistribución",
@@ -243,6 +250,9 @@ powers.marcaje = {
     descripcion = "Selecciona un número, todas las cartas con ese número hacen +3 de daño",
     cooldown = C(1),
     activar = function(state, target_numero)
+        if target_numero == nil then
+            return { mensaje = "Selecciona una carta de tu mano" }
+        end
         state.numero_marcado = target_numero
         return { mensaje = "Número " .. target_numero .. " marcado (+3 daño)" }
     end,

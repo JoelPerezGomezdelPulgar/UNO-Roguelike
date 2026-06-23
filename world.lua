@@ -173,6 +173,7 @@ function world.procesar_victoria(state)
 
     -- Reiniciar estado de combate
     state.turno_actual = 1
+    state.jugador:remove_status("aturdido")
     state.aturdido = 0
 end
 

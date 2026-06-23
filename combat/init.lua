@@ -74,6 +74,7 @@ function combat.start_turn(state, es_jugador)
     local entity = es_jugador and state.jugador or state.rival
     state.turn_entity = entity
     state.veloz_activo = 0
+    state.aturdido = 0
 
     -- status effects on turn start
     for status_id, cargas in pairs(entity.status) do
@@ -81,8 +82,10 @@ function combat.start_turn(state, es_jugador)
         if def and def.on_turn_start then
             local nuevas = def.on_turn_start(state, cargas, entity)
             if nuevas ~= nil then
-                if nuevas <= 0 then entity.status[status_id] = nil
-                else entity.status[status_id] = nuevas end
+            if nuevas <= 0 then
+                if def.on_end then def.on_end(state, cargas, entity) end
+                entity.status[status_id] = nil
+            else entity.status[status_id] = nuevas end
             end
         end
     end
@@ -382,7 +385,28 @@ function combat.mano_vacia_ataque(state)
     end
     if cargas_aturdido > 0 then
         state.jugador:aplicar_status("aturdido", cargas_aturdido)
+        state.aturdido = cargas_aturdido
     end
+
+    -- Barajar mazo, mantener la última carta jugada en mesa
+    local ultima_carta = table.remove(state.mesa)
+    local pool = {}
+    for _, c in ipairs(state.mesa or {}) do table.insert(pool, c) end
+    for _, c in ipairs(state.mazo_jugador or {}) do table.insert(pool, c) end
+    state.mesa = {}
+    state.mazo_jugador = {}
+    for i = #pool, 2, -1 do
+        local j = math.random(i)
+        pool[i], pool[j] = pool[j], pool[i]
+    end
+    for i = 1, 7 do
+        if #pool > 0 then
+            table.insert(state.jugador.mano, table.remove(pool))
+        end
+    end
+    table.insert(state.mesa, ultima_carta)
+    state.mazo_jugador = pool
+
     return { dano = dano, mensaje = "Ataque final! " .. dano .. " daño pero aturdido 2 turnos" }
 end
 
