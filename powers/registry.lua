@@ -60,8 +60,15 @@ powers.rayo_electricidad = {
     descripcion = "25% vida máxima del rival (33% si está mojado)",
     cooldown = C(1),
     activar = function(state)
-        local pct = state.rival:has_status("mojado") and 0.33 or 0.25
-        return { dano = math.floor(state.rival.vida_max * pct) }
+        if state.rival:has_status("mojado") then
+            local dmg = math.floor(state.rival.vida_max * 0.33)
+            state.rival.vida = state.rival.vida - dmg
+            return { dano = dmg }
+        else
+            local dmg = math.floor(state.rival.vida_max * 0.25)
+            state.rival.vida = state.rival.vida - dmg
+            return { dano = dmg }
+        end
     end,
 }
 
