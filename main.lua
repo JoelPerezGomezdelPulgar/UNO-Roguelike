@@ -267,6 +267,7 @@ function draw_relic_panel()
     end
 
     love.graphics.pop()
+    love.graphics.setScissor()
 end
 
 function draw_tienda()
@@ -479,6 +480,7 @@ function handle_combat_click(mx, my)
     local deck_x, deck_y = 460, 260
     if mx >= deck_x and mx <= deck_x + CARD_W and my >= deck_y and my <= deck_y + CARD_H then
         state.mostrando_mazo = true
+        accion_pendiente = nil
         return
     end
 
@@ -488,6 +490,18 @@ function handle_combat_click(mx, my)
         local cx = sx + (i - 1) * (CARD_W + CARD_GAP)
         local cy = sy
         if mx >= cx and mx <= cx + CARD_W and my >= cy and my <= cy + CARD_H then
+            -- Pending power target selection
+            if accion_pendiente then
+                local carta = state.jugador.mano[i]
+                local ap = accion_pendiente
+                accion_pendiente = nil
+                if ap.type == "marcaje" then
+                    local resultado = game.usar_poder(state, ap.idx, carta.valor)
+                    mensaje = resultado and resultado.mensaje or ""
+                    mensaje_timer = 180
+                end
+                return
+            end
             local found = nil
             for idx, si in ipairs(selected) do
                 if si == i then
@@ -503,6 +517,9 @@ function handle_combat_click(mx, my)
         end
     end
 
+    -- Not a card click => clear any pending power target selection
+    accion_pendiente = nil
+
     -- Power buttons (izquierda)
     local ppw, pph, pbth = 210, 50, 24
     local ppy = 100
@@ -511,6 +528,12 @@ function handle_combat_click(mx, my)
         local pbx = 20 + ppw / 2 - 40
         local pby = ppy + pph + 2
         if mx >= pbx and mx <= pbx + 80 and my >= pby and my <= pby + pbth and listo then
+            if p.id == "marcaje" then
+                accion_pendiente = { type = "marcaje", idx = i }
+                mensaje = "Selecciona una carta de tu mano para marcar su número"
+                mensaje_timer = 180
+                return
+            end
             local resultado = game.usar_poder(state, i)
             mensaje = resultado and resultado.mensaje or ""
             mensaje_timer = 180
@@ -680,13 +703,13 @@ function love.keypressed(key)
     if key:find("f") then
         local n = tonumber(key:sub(2))
         local ids = {
-            [1] = "haz_luz",
-            [2] = "haz_oscuridad",
-            [3] = "absorcion_vida",
+            [1] = "redistribucion",
+            [2] = "marcaje",
+            [3] = "rafaga_viento",
             [4] = "furia_berserker",
             [5] = "golpe_decisivo",
-            [6] = "rayo_electricidad",
-            [7] = "gas_venenoso",
+            [6] = "bloqueo_perfecto",
+            [7] = "elusion",
             [8] = "bola_fuego",
             [9] = "martillo_juicio",
             [10] = "invocacion_menor",
