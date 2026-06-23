@@ -140,8 +140,6 @@ function draw_combat()
     draw_hp_bar(20, 30, 350, state.jugador.vida, state.jugador.vida_max, "Alice (Tú)")
     draw_hp_bar(630, 30, 350, state.rival.vida, state.rival.vida_max, state.rival.nombre)
     love.graphics.setColor(1, 1, 1)
-    love.graphics.print("Oro: " .. (state.oro or 0), 20, 60)
-    love.graphics.print("Comida: " .. (state.comida or 0), 20, 80)
     love.graphics.print("Mundo " .. (state.mundo_actual or 1) .. " - Nivel " .. (state.nivel_actual or 1), 400, 10)
 
     -- Panel de poderes a la izquierda
@@ -210,6 +208,10 @@ function draw_combat()
 
     -- Panel de reliquias
     draw_relic_panel()
+
+    -- Oro y comida (dibujados después del panel de reliquias)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print("Oro: " .. (state.oro or 0) .. "  |  Comida: " .. (state.comida or 0), 20, 55)
 end
 
 function draw_relic_panel()
@@ -218,15 +220,15 @@ function draw_relic_panel()
     local px = state.relic_panel_x
     local py = state.relic_panel_y
     local pw = state.relic_panel_w
-    local psh = 60
+    local psh = 165
     local psw = state.relic_slot_w
     local offset = state.relic_offset or 0
 
     -- Fondo del panel
     love.graphics.setColor(0.15, 0.15, 0.2)
     love.graphics.rectangle("fill", px, py, pw, psh, 4, 4)
-    love.graphics.setColor(0.7, 0.7, 0.7)
-    love.graphics.print("Reliquias", px + 4, py - 16)
+    love.graphics.setColor(0.6, 0.6, 0.9)
+    love.graphics.print("Reliquias", px + 4, py + 2)
 
     -- Clip al area del panel
     love.graphics.push()
@@ -332,7 +334,7 @@ end
 
 function draw_powers_panel()
     local defs = require("powers.registry")
-    local px, py = 20, 100
+    local px, py = 20, 120
     local pw, ph = 210, 50
     local bth = 24
 
@@ -369,7 +371,7 @@ function draw_powers_panel()
 
         py = py + ph + bth + 6
     end
-    state._poderes_panel_y = { px = px, py_start = 100, pw = pw, ph = ph, bth = bth }
+    state._poderes_panel_y = { px = px, py_start = 120, pw = pw, ph = ph, bth = bth }
 end
 
 function draw_mazo_viewer()
@@ -522,7 +524,7 @@ function handle_combat_click(mx, my)
 
     -- Power buttons (izquierda)
     local ppw, pph, pbth = 210, 50, 24
-    local ppy = 100
+    local ppy = 120
     for i, p in ipairs(state.poderes) do
         local listo = not p.cooldown_actual or p.cooldown_actual <= 0
         local pbx = 20 + ppw / 2 - 40
@@ -607,7 +609,7 @@ function handle_combat_click(mx, my)
         local px = state.relic_panel_x
         local py = state.relic_panel_y
         local pw = state.relic_panel_w
-        local psh = 60
+        local psh = 165
         if mx >= px and mx <= px + pw and my >= py and my <= py + psh then
             local offset = state.relic_offset or 0
             local idx = math.floor((mx - px + offset) / state.relic_slot_w) + 1
@@ -702,24 +704,53 @@ function love.keypressed(key)
 
     if key:find("f") then
         local n = tonumber(key:sub(2))
-        local ids = {
-            [1] = "redistribucion",
-            [2] = "marcaje",
-            [3] = "rafaga_viento",
-            [4] = "furia_berserker",
-            [5] = "golpe_decisivo",
-            [6] = "bloqueo_perfecto",
-            [7] = "elusion",
-            [8] = "bola_fuego",
-            [9] = "martillo_juicio",
-            [10] = "invocacion_menor",
-        }
-        local id = ids[n]
-        if id and state.fase == "combat" then
-            local defs = require("powers.registry")
-            if defs[id] then
-                table.insert(state.poderes, { id = id, cooldown_actual = 0 })
-                mensaje = "DEBUG: Poder '" .. (defs[id].nombre or id) .. "' añadido"
+        if n and state.fase == "combat" then
+            local shift = love.keyboard.isDown("lshift", "rshift")
+            local ctrl = love.keyboard.isDown("lctrl", "rctrl")
+            local idx = n
+            if ctrl then
+                idx = 24 + n
+            elseif shift then
+                idx = 12 + n
+            end
+            local relic_ids = {
+                [1] = "trebol_4_hojas",
+                [2] = "antidoto_debil",
+                [3] = "cornucopia",
+                [4] = "pergamino_leyendas",
+                [5] = "colgante_rubi",
+                [6] = "colgante_esmeralda",
+                [7] = "colgante_zafiro",
+                [8] = "colgante_ambar",
+                [9] = "gema_orden",
+                [10] = "daga_sangre",
+                [11] = "mano_midas",
+                [12] = "concha_triton",
+                [13] = "ojo_ra",
+                [14] = "caliz_elementos",
+                [15] = "puno_avaricia",
+                [16] = "blason_elemental",
+                [17] = "escudo_eter",
+                [18] = "anillo_vacio",
+                [19] = "contrato_maldito",
+                [20] = "gema_caos",
+                [21] = "guantes_seda",
+                [22] = "amuleto_eco",
+                [23] = "lente_aumento",
+                [24] = "piedra_iman",
+                [25] = "carta_marcada",
+                [26] = "sello_sangre",
+                [27] = "bolsa_arena",
+                [28] = "colmillo_plata",
+                [29] = "pendulo_lunar",
+                [30] = "ala_cuervo",
+                [31] = "espejo_reflector",
+            }
+            local id = relic_ids[idx]
+            if id then
+                table.insert(state.relics, { id = id })
+                local nombre = require("relics.registry")[id].nombre or id
+                mensaje = "DEBUG: Reliquia '" .. nombre .. "' añadida (F" .. n .. (shift and " Shift" or ctrl and " Ctrl" or "") .. ")"
                 mensaje_timer = 180
             end
         end

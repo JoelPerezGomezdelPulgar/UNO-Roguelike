@@ -29,8 +29,8 @@ function game.nuevo_juego()
         relic_offset = 0,
         relic_slot_w = 100,
         relic_panel_x = 20,
-        relic_panel_y = 80,
-        relic_panel_w = 450,
+        relic_panel_y = 265,
+        relic_panel_w = 430,
         relic_dragging = nil,
         relic_drag_start_x = nil,
         -- Flags
