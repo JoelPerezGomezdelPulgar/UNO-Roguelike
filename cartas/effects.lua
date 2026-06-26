@@ -5,25 +5,25 @@ local card_effects = {}
 
 card_effects.quemado = {
     aplicar = function(card, state)
-        state.rival:aplicar_status("quemado", 3)
+        state.rival:aplicar_estados("quemado", 3)
     end,
 }
 
 card_effects.mojado = {
     aplicar = function(card, state)
-        state.rival:aplicar_status("mojado", 3)
+        state.rival:aplicar_estados("mojado", 3)
     end,
 }
 
 card_effects.veneno = {
     aplicar = function(card, state)
-        state.rival:aplicar_status("veneno", 2)
+        state.rival:aplicar_estados("veneno", 2)
     end,
 }
 
 card_effects.descomposicion = {
     aplicar = function(card, state)
-        state.rival:aplicar_status("descomposicion", 3)
+        state.rival:aplicar_estados("descomposicion", 3)
     end,
 }
 
@@ -63,6 +63,12 @@ card_effects.electrico = {
     aplicar = function(card, state)
         local extra = state.dano_electrico_extra or 0
         return extra
+    end,
+}
+
+card_effects.descompuesta = {
+    aplicar = function(card, state)
+        state.rival:aplicar_estados("descomposicion", 4)
     end,
 }
 

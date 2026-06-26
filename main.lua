@@ -1,10 +1,10 @@
 if not table.unpack then table.unpack = unpack end
 
-local COLORS = require("data.colors")
-local game = require("game")
-local world = require("world")
-local combat = require("combat.init")
-local shop = require("shop")
+local COLORES = require("datos.colors")
+local juego = require("juego")
+local mundo = require("mundo")
+local combate = require("combate.init")
+local tienda = require("tienda")
 
 local state
 local selected = {}
@@ -12,10 +12,13 @@ local mensaje = ""
 local mensaje_timer = 0
 local accion_pendiente = nil
 local mostrar_mano_rival = false
+local sel_inicio = nil
+local sel_arrastrando = false
+local sel_ultimo_idx = nil
 
 -- UI constants
-local CARD_W, CARD_H = 80, 120
-local CARD_GAP = 10
+local CARTA_W, CARTA_H = 80, 120
+local CARTA_ESPACIO = 10
 
 local BASE_W, BASE_H = 1000, 700
 local s, ox, oy = 1, 0, 0
@@ -29,7 +32,7 @@ function love.load()
     s = math.min(w / BASE_W, h / BASE_H)
     ox = (w - BASE_W * s) / 2
     oy = (h - BASE_H * s) / 2
-    state = game.nuevo_juego()
+    state = juego.nuevo_juego()
     state.fase = "menu"
 end
 
@@ -39,9 +42,9 @@ function love.resize(w, h)
     oy = (h - BASE_H * s) / 2
 end
 
-function draw_card(x, y, carta, seleccionada, oculta, w, h)
-    w = w or CARD_W
-    h = h or CARD_H
+function dibujar_carta(x, y, carta, seleccionada, oculta, w, h)
+    w = w or CARTA_W
+    h = h or CARTA_H
     if oculta then
         love.graphics.setColor(0.4, 0.4, 0.4)
         love.graphics.rectangle("fill", x, y, w, h, 6, 6)
@@ -50,7 +53,7 @@ function draw_card(x, y, carta, seleccionada, oculta, w, h)
         return
     end
 
-    local c = COLORS[carta.color] or { r = 0.8, g = 0.8, b = 0.8 }
+    local c = COLORES[carta.color] or { r = 0.8, g = 0.8, b = 0.8 }
     if seleccionada then
         love.graphics.setLineWidth(4)
         love.graphics.setColor(1, 1, 1)
@@ -59,6 +62,17 @@ function draw_card(x, y, carta, seleccionada, oculta, w, h)
 
     love.graphics.setColor(c.r, c.g, c.b, 0.9)
     love.graphics.rectangle("fill", x, y, w, h, 6, 6)
+
+    if carta.efectos then
+        for _, ef in ipairs(carta.efectos) do
+            if ef == "descompuesta" then
+                love.graphics.setColor(0.2, 0.8, 0.2, 0.2)
+                love.graphics.rectangle("fill", x, y, w, h, 6, 6)
+                break
+            end
+        end
+    end
+
     love.graphics.setColor(0, 0, 0, 0.25)
     love.graphics.rectangle("fill", x, y, w, 22, 6, 6)
 
@@ -74,7 +88,7 @@ function draw_card(x, y, carta, seleccionada, oculta, w, h)
     end
 end
 
-function draw_hp_bar(x, y, w, hp, max_hp, nombre)
+function dibujar_barra_vida(x, y, w, hp, max_hp, nombre)
     love.graphics.setColor(1, 1, 1)
     love.graphics.print(nombre, x, y - 18)
     love.graphics.setColor(0.25, 0.25, 0.25)
@@ -87,7 +101,7 @@ function draw_hp_bar(x, y, w, hp, max_hp, nombre)
     love.graphics.print(hp_str, x + w / 2 - love.graphics.getFont():getWidth(hp_str) / 2, y + 4)
 end
 
-function draw_button(x, y, w, h, texto, enabled)
+function dibujar_boton(x, y, w, h, texto, enabled)
     love.graphics.setColor(enabled and 0.3 or 0.2, enabled and 0.6 or 0.2, enabled and 0.3 or 0.2, enabled and 1 or 0.5)
     love.graphics.rectangle("fill", x, y, w, h, 4, 4)
     love.graphics.setColor(1, 1, 1, enabled and 1 or 0.5)
@@ -112,11 +126,11 @@ function love.draw()
     love.graphics.setBackgroundColor(0.1, 0.1, 0.15)
 
     if state.fase == "combat" then
-        draw_combat()
+        dibujar_combate()
     elseif state.fase == "tienda" then
-        draw_tienda()
+        dibujar_tienda()
     elseif state.fase == "game_over" then
-        draw_game_over()
+        dibujar_game_over()
     end
 
     -- Mensaje global
@@ -128,29 +142,29 @@ function love.draw()
     love.graphics.pop()
 end
 
-function draw_combat()
+function dibujar_combate()
     if not state.rival or not state.jugador then return end
 
     if state.mostrando_mazo then
-        draw_mazo_viewer()
+        dibujar_visor_mazo()
         return
     end
 
     -- HP bars
-    draw_hp_bar(20, 30, 350, state.jugador.vida, state.jugador.vida_max, "Alice (Tú)")
-    draw_hp_bar(630, 30, 350, state.rival.vida, state.rival.vida_max, state.rival.nombre)
+    dibujar_barra_vida(20, 30, 350, state.jugador.vida, state.jugador.vida_max, "Alice (Tú)")
+    dibujar_barra_vida(630, 30, 350, state.rival.vida, state.rival.vida_max, state.rival.nombre)
     love.graphics.setColor(1, 1, 1)
     love.graphics.print("Mundo " .. (state.mundo_actual or 1) .. " - Nivel " .. (state.nivel_actual or 1), 400, 10)
 
     -- Panel de poderes a la izquierda
-    draw_powers_panel()
+    dibujar_panel_poderes()
 
     -- Mano rival (oculta o visible)
     love.graphics.print("Mano rival:", 630, 140)
     local rx, ry = 630, 160
     for i, c in ipairs(state.rival.mano) do
         local mostrar = mostrar_mano_rival or state.ver_mano_rival
-        draw_card(rx + (i - 1) * 55, ry, c, false, not mostrar)
+        dibujar_carta(rx + (i - 1) * 55, ry, c, false, not mostrar)
         if i > 7 then break end
     end
 
@@ -159,17 +173,17 @@ function draw_combat()
     if top then
         love.graphics.setColor(1, 1, 1)
         love.graphics.print("Mesa:", 450, 90)
-        draw_card(460, 110, top, false, false)
+        dibujar_carta(460, 110, top, false, false)
     end
 
     -- Mazo clickeable
     love.graphics.setColor(1, 1, 1)
     love.graphics.print("Mazo:", 450, 240)
-    draw_card(460, 260, nil, false, true)
+    dibujar_carta(460, 260, nil, false, true)
     love.graphics.setColor(1, 1, 1)
     local mazo_count = #state.mazo_jugador
     local mc_str = tostring(mazo_count) .. " cartas"
-    love.graphics.print(mc_str, 460 + CARD_W / 2 - love.graphics.getFont():getWidth(mc_str) / 2, 260 + CARD_H / 2 - 8)
+    love.graphics.print(mc_str, 460 + CARTA_W / 2 - love.graphics.getFont():getWidth(mc_str) / 2, 260 + CARTA_H / 2 - 8)
 
     -- Mano del jugador
     love.graphics.setColor(1, 1, 1)
@@ -184,45 +198,50 @@ function draw_combat()
                 sel = true; break
             end
         end
-        draw_card(sx + (i - 1) * (CARD_W + CARD_GAP), sy, carta, sel, false)
+        dibujar_carta(sx + (i - 1) * (CARTA_W + CARTA_ESPACIO), sy, carta, sel, false)
         love.graphics.setColor(0.8, 0.8, 0.8)
-        love.graphics.print(tostring(i), sx + (i - 1) * (CARD_W + CARD_GAP) + 2, sy + CARD_H - 14)
+        love.graphics.print(tostring(i), sx + (i - 1) * (CARTA_W + CARTA_ESPACIO) + 2, sy + CARTA_H - 14)
     end
 
     -- Botones
     local bx, by = 880, 460
-    draw_button(bx, by, 100, 30, "Jugar", #selected > 0)
-    draw_button(bx, by + 40, 100, 30, "Robar", true)
-    draw_button(bx, by + 80, 100, 30, "Poderes", #state.poderes > 0)
-    draw_button(bx, by + 120, 100, 30, "Objetos", #state.objetos > 0)
+    dibujar_boton(bx, by, 100, 30, "Jugar", #selected > 0)
+    dibujar_boton(bx, by + 40, 100, 30, "Robar", true)
+    dibujar_boton(bx, by + 80, 100, 30, "Poderes", #state.poderes > 0)
+    dibujar_boton(bx, by + 120, 100, 30, "Objetos", #state.objetos > 0)
 
     if state.aturdido and state.aturdido > 0 then
         love.graphics.setColor(1, 0.3, 0.3)
         love.graphics.print("ATURDIDO (" .. state.aturdido .. " turno(s))", 400, 300)
         love.graphics.setColor(1, 1, 1)
-        draw_button(bx, by + 160, 100, 30, "Saltar turno", true)
+        dibujar_boton(bx, by + 160, 100, 30, "Saltar turno", true)
     end
 
     -- Ver mano rival toggle
     if state.ver_mano_rival then mostrar_mano_rival = true end
 
     -- Panel de reliquias
-    draw_relic_panel()
+    dibujar_panel_reliquias()
 
     -- Oro y comida (dibujados después del panel de reliquias)
     love.graphics.setColor(1, 1, 1)
-    love.graphics.print("Oro: " .. (state.oro or 0) .. "  |  Comida: " .. (state.comida or 0), 20, 55)
+    local descomp_cargas = state.rival.status and state.rival.status.descomposicion or 0
+    local descomp_texto = ""
+    if descomp_cargas > 0 then
+        descomp_texto = "  |  Descomposición: " .. descomp_cargas
+    end
+    love.graphics.print("Oro: " .. (state.oro or 0) .. "  |  Comida: " .. (state.comida or 0) .. descomp_texto, 20, 55)
 end
 
-function draw_relic_panel()
-    if not state.relics or #state.relics == 0 then return end
+function dibujar_panel_reliquias()
+    if not state.reliquias or #state.reliquias == 0 then return end
 
-    local px = state.relic_panel_x
-    local py = state.relic_panel_y
-    local pw = state.relic_panel_w
+    local px = state.reliquias_panel_x
+    local py = state.reliquias_panel_y
+    local pw = state.reliquias_panel_w
     local psh = 165
-    local psw = state.relic_slot_w
-    local offset = state.relic_offset or 0
+    local psw = state.reliquias_hueco_w
+    local offset = state.reliquias_offset or 0
 
     -- Fondo del panel
     love.graphics.setColor(0.15, 0.15, 0.2)
@@ -234,10 +253,10 @@ function draw_relic_panel()
     love.graphics.push()
     love.graphics.setScissor(px, py, pw, psh)
 
-    for i, r in ipairs(state.relics) do
+    for i, r in ipairs(state.reliquias) do
         local rx = px + (i - 1) * psw - offset
         if rx + psw > px and rx < px + pw then
-            local rb = r.id and require("relics.registry")[r.id] or r
+            local rb = r.id and require("reliquias.registry")[r.id] or r
 
             -- Slot de reliquia
             love.graphics.setColor(0.25, 0.2, 0.3)
@@ -254,13 +273,13 @@ function draw_relic_panel()
             -- Nombre (truncado)
             love.graphics.setColor(1, 1, 1)
             local nombre = (rb.nombre or r.id or "?")
-            love.graphics.print(nombre, rx + 4, py + 8, psw - 8)
+            love.graphics.printf(nombre, rx + 4, py + 8, psw - 8, "left")
 
             -- Descripcion corta
             love.graphics.setColor(0.7, 0.7, 0.7)
             local desc = (rb.descripcion or "")
             if #desc > 30 then desc = desc:sub(1, 27) .. "..." end
-            love.graphics.print(desc, rx + 4, py + 28, psw - 8)
+            love.graphics.printf(desc, rx + 4, py + 28, psw - 8, "left")
 
             -- Indice
             love.graphics.setColor(0.5, 0.5, 0.5)
@@ -272,12 +291,12 @@ function draw_relic_panel()
     love.graphics.setScissor()
 end
 
-function draw_tienda()
+function dibujar_tienda()
     love.graphics.setColor(1, 1, 1)
     love.graphics.printf("TIENDA", 0, 20, 1000, "center")
     love.graphics.print("Oro: " .. (state.oro or 0), 20, 50)
 
-    if not state.shop then shop.generar_tienda(state) end
+    if not state.shop then tienda.generar_tienda(state) end
 
     -- Productos
     local px, py = 100, 100
@@ -296,9 +315,9 @@ function draw_tienda()
         py = py + 70
     end
 
-    draw_button(800, 100, 120, 30, "Reroll (" .. state.shop.precio_reroll_base + (state.shop.rerolls or 0) * 1 .. " oro)",
+    dibujar_boton(800, 100, 120, 30, "Reroll (" .. state.shop.precio_reroll_base + (state.shop.rerolls or 0) * 1 .. " oro)",
         true)
-    draw_button(800, 140, 120, 30, "Siguiente", true)
+    dibujar_boton(800, 140, 120, 30, "Siguiente", true)
 
     if state.shop.cuartel then
         love.graphics.setColor(1, 1, 1)
@@ -318,11 +337,11 @@ function draw_tienda()
         local m = state.shop.mercader
         love.graphics.setColor(1, 1, 1)
         love.graphics.print("MERCADER: Cofre de " .. m.tipo .. " (" .. m.precio .. " oro)", 100, 550)
-        draw_button(400, 550, 100, 30, "Comprar", (state.oro or 0) >= m.precio)
+        dibujar_boton(400, 550, 100, 30, "Comprar", (state.oro or 0) >= m.precio)
     end
 end
 
-function draw_game_over()
+function dibujar_game_over()
     love.graphics.setColor(0.1, 0.1, 0.12)
     love.graphics.setColor(1, 0.3, 0.3)
     love.graphics.printf("GAME OVER", 0, 250, 1000, "center")
@@ -332,8 +351,8 @@ function draw_game_over()
     love.graphics.printf("Presiona ESPACIO para reiniciar", 0, 350, 1000, "center")
 end
 
-function draw_powers_panel()
-    local defs = require("powers.registry")
+function dibujar_panel_poderes()
+    local defs = require("poderes.registry")
     local px, py = 20, 120
     local pw, ph = 210, 50
     local bth = 24
@@ -359,7 +378,7 @@ function draw_powers_panel()
         local desc = (d and d.descripcion or "")
         if #desc > 50 then desc = desc:sub(1, 47) .. "..." end
         love.graphics.setColor(0.7, 0.7, 0.7)
-        love.graphics.print(desc, px + 4, py + 18, pw - 8)
+        love.graphics.printf(desc, px + 4, py + 18, pw - 8, "left")
 
         -- Boton activar
         local bx = px + pw / 2 - 40
@@ -374,7 +393,7 @@ function draw_powers_panel()
     state._poderes_panel_y = { px = px, py_start = 120, pw = pw, ph = ph, bth = bth }
 end
 
-function draw_mazo_viewer()
+function dibujar_visor_mazo()
     love.graphics.setColor(0, 0, 0, 0.87)
     love.graphics.rectangle("fill", 0, 0, 1000, 700)
     love.graphics.setColor(1, 1, 1)
@@ -400,7 +419,7 @@ function draw_mazo_viewer()
             if c.color == color_name then table.insert(band, { card = c, loc = "mano" }) end
         end
         for _, c in ipairs(state.mesa or {}) do
-            if c.color == color_name then table.insert(band, { card = c, loc = "mesa" }) end
+            if c.es_jugador and c.color == color_name then table.insert(band, { card = c, loc = "mesa" }) end
         end
         table.sort(band, function(a, b)
             if a.card.valor ~= b.card.valor then return a.card.valor < b.card.valor end
@@ -417,7 +436,7 @@ function draw_mazo_viewer()
             local x = start_x + (i - 1) * overlap
             local y = row_y + 16
             local en_mazo = entry.loc == "mazo"
-            draw_card(x, y, entry.card, false, false, cw, ch)
+            dibujar_carta(x, y, entry.card, false, false, cw, ch)
 
             if not en_mazo then
                 love.graphics.setColor(0, 0, 0, 0.55)
@@ -432,47 +451,94 @@ function draw_mazo_viewer()
 end
 
 function love.mousepressed(mx, my, button)
-    if button ~= 1 then return end
     mx, my = (mx - ox) / s, (my - oy) / s
 
     if state.fase == "combat" then
-        handle_combat_click(mx, my)
+        if button == 1 then
+            manejar_click_combate(mx, my)
+        elseif button == 2 then
+            manejar_click_derecho_combate(mx, my)
+        end
     elseif state.fase == "tienda" then
-        handle_tienda_click(mx, my)
+        manejar_click_tienda(mx, my)
     end
 end
 
 function love.mousemoved(mx, my)
-    if not state.dragging_relic then return end
+    if sel_arrastrando then
+        mx, my = (mx - ox) / s, (my - oy) / s
+        local sx, sy = 20, 460
+        local hover = nil
+        for i, _ in ipairs(state.jugador.mano) do
+            local cx = sx + (i - 1) * (CARTA_W + CARTA_ESPACIO)
+            if mx >= cx and mx <= cx + CARTA_W and my >= sy and my <= sy + CARTA_H then
+                hover = i; break
+            end
+        end
+        if hover and hover ~= sel_ultimo_idx then
+            sel_ultimo_idx = hover
+            local inicio = math.min(sel_inicio, hover)
+            local fin = math.max(sel_inicio, hover)
+            local seleccionando = true
+            for _, si in ipairs(selected) do
+                if si == sel_inicio then seleccionando = false; break end
+            end
+            selected = {}
+            if seleccionando then
+                for j = inicio, fin do
+                    if #selected < 3 then table.insert(selected, j) end
+                end
+            end
+        end
+        if not hover then sel_ultimo_idx = nil end
+        return
+    end
+    if not state.arrastrando_reliquia then return end
     mx = (mx - ox) / s
-    local px = state.relic_panel_x
-    local psw = state.relic_slot_w
-    local offset = state.relic_offset or 0
+    local px = state.reliquias_panel_x
+    local psw = state.reliquias_hueco_w
+    local offset = state.reliquias_offset or 0
     local target_idx = math.floor((mx - px + offset) / psw) + 1
-    if target_idx >= 1 and target_idx <= #state.relics and target_idx ~= state.dragging_relic then
-        local r = table.remove(state.relics, state.dragging_relic)
-        table.insert(state.relics, target_idx, r)
-        state.dragging_relic = target_idx
+    if target_idx >= 1 and target_idx <= #state.reliquias and target_idx ~= state.arrastrando_reliquia then
+        local r = table.remove(state.reliquias, state.arrastrando_reliquia)
+        table.insert(state.reliquias, target_idx, r)
+        state.arrastrando_reliquia = target_idx
     end
 end
 
 function love.mousereleased(mx, my, button)
     if button == 1 then
-        state.dragging_relic = nil
+        state.arrastrando_reliquia = nil
+    elseif button == 2 then
+        sel_arrastrando = false
+        sel_inicio = nil
+        sel_ultimo_idx = nil
     end
 end
 
 function love.wheelmoved(x, y)
     if state.fase ~= "combat" then return end
-    local px = state.relic_panel_x
-    local py = state.relic_panel_y
-    local pw = state.relic_panel_w
-    local psw = state.relic_slot_w
-    local max_offset = math.max(0, #(state.relics or {}) * psw - pw)
-    state.relic_offset = math.max(0, math.min(max_offset, (state.relic_offset or 0) - y * 50))
+    local px = state.reliquias_panel_x
+    local py = state.reliquias_panel_y
+    local pw = state.reliquias_panel_w
+    local psw = state.reliquias_hueco_w
+    local max_offset = math.max(0, #(state.reliquias or {}) * psw - pw)
+    state.reliquias_offset = math.max(0, math.min(max_offset, (state.reliquias_offset or 0) - y * 50))
 end
 
-function handle_combat_click(mx, my)
+function manejar_click_derecho_combate(mx, my)
+    local sx, sy = 20, 460
+    for i, _ in ipairs(state.jugador.mano) do
+        local cx = sx + (i - 1) * (CARTA_W + CARTA_ESPACIO)
+        if mx >= cx and mx <= cx + CARTA_W and my >= sy and my <= sy + CARTA_H then
+            sel_inicio = i
+            sel_arrastrando = true
+            return
+        end
+    end
+end
+
+function manejar_click_combate(mx, my)
     if state.mostrando_mazo then
         state.mostrando_mazo = false
         return
@@ -480,7 +546,7 @@ function handle_combat_click(mx, my)
 
     -- Click en mazo
     local deck_x, deck_y = 460, 260
-    if mx >= deck_x and mx <= deck_x + CARD_W and my >= deck_y and my <= deck_y + CARD_H then
+    if mx >= deck_x and mx <= deck_x + CARTA_W and my >= deck_y and my <= deck_y + CARTA_H then
         state.mostrando_mazo = true
         accion_pendiente = nil
         return
@@ -489,16 +555,16 @@ function handle_combat_click(mx, my)
     -- Card clicks in player hand
     local sx, sy = 20, 460
     for i, _ in ipairs(state.jugador.mano) do
-        local cx = sx + (i - 1) * (CARD_W + CARD_GAP)
+        local cx = sx + (i - 1) * (CARTA_W + CARTA_ESPACIO)
         local cy = sy
-        if mx >= cx and mx <= cx + CARD_W and my >= cy and my <= cy + CARD_H then
+        if mx >= cx and mx <= cx + CARTA_W and my >= cy and my <= cy + CARTA_H then
             -- Pending power target selection
             if accion_pendiente then
                 local carta = state.jugador.mano[i]
                 local ap = accion_pendiente
                 accion_pendiente = nil
                 if ap.type == "marcaje" then
-                    local resultado = game.usar_poder(state, ap.idx, carta.valor)
+                    local resultado = juego.usar_poder(state, ap.idx, carta.valor)
                     mensaje = resultado and resultado.mensaje or ""
                     mensaje_timer = 180
                 end
@@ -536,7 +602,7 @@ function handle_combat_click(mx, my)
                 mensaje_timer = 180
                 return
             end
-            local resultado = game.usar_poder(state, i)
+            local resultado = juego.usar_poder(state, i)
             mensaje = resultado and resultado.mensaje or ""
             mensaje_timer = 180
             return
@@ -547,26 +613,26 @@ function handle_combat_click(mx, my)
     -- Buttons
     local bx, by = 880, 460
     if mx >= bx and mx <= bx + 100 and my >= by and my <= by + 30 and #selected > 0 then
-        local resultado = game.turno_jugador(state, "jugar", { indices = selected })
+        local resultado = juego.turno_jugador(state, "jugar", { indices = selected })
         mensaje = resultado and resultado.mensaje or ""
         mensaje_timer = 180
         selected = {}
         if state.fase == "tienda" then
-            shop.generar_tienda(state)
+            tienda.generar_tienda(state)
         end
     end
     if mx >= bx and mx <= bx + 100 and my >= by + 40 and my <= by + 70 then
-        local resultado = game.turno_jugador(state, "robar")
+        local resultado = juego.turno_jugador(state, "robar")
         mensaje = resultado and resultado.mensaje or ""
         mensaje_timer = 120
         selected = {}
         if state.fase == "tienda" then
-            shop.generar_tienda(state)
+            tienda.generar_tienda(state)
         end
     end
     if mx >= bx and mx <= bx + 100 and my >= by + 80 and my <= by + 110 then
         if #state.poderes > 0 then
-            local defs = require("powers.registry")
+            local defs = require("poderes.registry")
             local txt = "Poderes:\n"
             for i, p in ipairs(state.poderes) do
                 local d = defs[p.id]
@@ -584,7 +650,7 @@ function handle_combat_click(mx, my)
     end
     if mx >= bx and mx <= bx + 100 and my >= by + 120 and my <= by + 150 then
         if #state.objetos > 0 then
-            local defs = require("items.registry")
+            local defs = require("objetos.registry")
             local txt = "Objetos:\n"
             for i, o in ipairs(state.objetos) do
                 local d = defs[o.id]
@@ -598,35 +664,35 @@ function handle_combat_click(mx, my)
     -- Saltar turno (aturdido)
     if state.aturdido and state.aturdido > 0 then
         if mx >= bx and mx <= bx + 100 and my >= by + 160 and my <= by + 190 then
-            local resultado = game.turno_jugador(state, "saltar")
+            local resultado = juego.turno_jugador(state, "saltar")
             mensaje = resultado and resultado.mensaje or ""
             mensaje_timer = 120
             selected = {}
         end
     end
     -- Click en panel de reliquias (drag & drop)
-    if state.relics and #state.relics > 0 then
-        local px = state.relic_panel_x
-        local py = state.relic_panel_y
-        local pw = state.relic_panel_w
+    if state.reliquias and #state.reliquias > 0 then
+        local px = state.reliquias_panel_x
+        local py = state.reliquias_panel_y
+        local pw = state.reliquias_panel_w
         local psh = 165
         if mx >= px and mx <= px + pw and my >= py and my <= py + psh then
-            local offset = state.relic_offset or 0
-            local idx = math.floor((mx - px + offset) / state.relic_slot_w) + 1
-            if idx >= 1 and idx <= #state.relics then
-                state.dragging_relic = idx
-                state.drag_start_x = mx
+            local offset = state.reliquias_offset or 0
+            local idx = math.floor((mx - px + offset) / state.reliquias_hueco_w) + 1
+            if idx >= 1 and idx <= #state.reliquias then
+                state.arrastrando_reliquia = idx
+                state.arrastrar_inicio_x = mx
             end
         end
     end
 end
 
-function handle_tienda_click(mx, my)
+function manejar_click_tienda(mx, my)
     -- Comprar productos
     local px, py = 100, 100
     for i, prod in ipairs(state.shop.productos or {}) do
         if mx >= px + 190 and mx <= px + 240 and my >= py + 40 and my <= py + 60 then
-            if game.comprar_tienda(state, i) then
+            if juego.comprar_tienda(state, i) then
                 mensaje = "Comprado!"
                 mensaje_timer = 120
             else
@@ -639,7 +705,7 @@ function handle_tienda_click(mx, my)
 
     -- Reroll
     if mx >= 800 and mx <= 920 and my >= 100 and my <= 130 then
-        if game.reroll_tienda(state) then
+        if juego.reroll_tienda(state) then
             mensaje = "Reroll"
             mensaje_timer = 60
         else
@@ -650,14 +716,14 @@ function handle_tienda_click(mx, my)
 
     -- Siguiente
     if mx >= 800 and mx <= 920 and my >= 140 and my <= 170 then
-        local resultado = world.avanzar_nivel(state)
+        local resultado = mundo.avanzar_nivel(state)
         if resultado == "combat" then
-            combat.init(state)
+            combate.iniciar(state)
             state.fase = "combat"
         elseif resultado == "bonus" then
             state.fase = "bonus"
         elseif resultado == "boss" then
-            combat.init(state)
+            combate.iniciar(state)
             state.fase = "combat"
         end
         selected = {}
@@ -665,7 +731,7 @@ function handle_tienda_click(mx, my)
 
     -- Mercader
     if state.shop.mercader and mx >= 400 and mx <= 500 and my >= 550 and my <= 580 then
-        if shop.comprar_cofre(state) then
+        if tienda.comprar_cofre(state) then
             mensaje = "Cofre comprado!"
             mensaje_timer = 120
         else
@@ -677,12 +743,12 @@ end
 
 function love.keypressed(key)
     if state.fase == "menu" and key == "space" then
-        game.iniciar_partida(state)
+        juego.iniciar_partida(state)
         return
     end
 
     if state.fase == "game_over" and key == "space" then
-        state = game.nuevo_juego()
+        state = juego.nuevo_juego()
         state.fase = "menu"
         return
     end
@@ -695,10 +761,21 @@ function love.keypressed(key)
             mostrar_mano_rival = not mostrar_mano_rival
         end
         if key == "d" then
-            local resultado = game.turno_jugador(state, "robar")
+            local resultado = juego.turno_jugador(state, "robar")
             mensaje = resultado and resultado.mensaje or ""
             mensaje_timer = 120
             selected = {}
+        end
+        if key == "p" then
+            if state.jugador.status and state.jugador.status.veneno then
+                state.jugador.status.veneno = nil
+                mensaje = "Antídoto funcionó! Veneno eliminado."
+                mensaje_timer = 180
+            else
+                state.jugador:aplicar_estados("veneno", 5)
+                mensaje = "Te infligiste Veneno x5"
+                mensaje_timer = 180
+            end
         end
     end
 
@@ -714,17 +791,17 @@ function love.keypressed(key)
                 idx = 12 + n
             end
             local relic_ids = {
-                [1] = "trebol_4_hojas",
-                [2] = "antidoto_debil",
+                [1] = "ojo_ra",
+                [2] = "caliz_elementos",
                 [3] = "cornucopia",
                 [4] = "pergamino_leyendas",
-                [5] = "colgante_rubi",
-                [6] = "colgante_esmeralda",
-                [7] = "colgante_zafiro",
+                [5] = "puno_avaricia",
+                [6] = "blason_elemental",
+                [7] = "escudo_eter",
                 [8] = "colgante_ambar",
-                [9] = "gema_orden",
-                [10] = "daga_sangre",
-                [11] = "mano_midas",
+                [9] = "anillo_vacio",
+                [10] = "contrato_maldito",
+                [11] = "gema_caos",
                 [12] = "concha_triton",
                 [13] = "ojo_ra",
                 [14] = "caliz_elementos",
@@ -748,10 +825,12 @@ function love.keypressed(key)
             }
             local id = relic_ids[idx]
             if id then
-                table.insert(state.relics, { id = id })
-                local nombre = require("relics.registry")[id].nombre or id
-                mensaje = "DEBUG: Reliquia '" .. nombre .. "' añadida (F" .. n .. (shift and " Shift" or ctrl and " Ctrl" or "") .. ")"
-                mensaje_timer = 180
+                local relic_def = require("reliquias.registry")[id]
+                if relic_def then
+                    table.insert(state.reliquias, relic_def)
+                    mensaje = "DEBUG: Reliquia '" .. (relic_def.nombre or id) .. "' añadida (F" .. n .. (shift and " Shift" or ctrl and " Ctrl" or "") .. ")"
+                    mensaje_timer = 180
+                end
             end
         end
     end
@@ -762,7 +841,7 @@ function love.update(dt)
 
     if state.fase == "combat" then
         if state.jugador.vida <= 0 then
-            local res = world.procesar_derrota(state)
+            local res = mundo.procesar_derrota(state)
             if res == "game_over" then
                 state.fase = "game_over"
                 mensaje = "Game Over"
@@ -770,9 +849,9 @@ function love.update(dt)
             end
         end
         if state.rival and state.rival.vida <= 0 then
-            world.procesar_victoria(state)
+            mundo.procesar_victoria(state)
             state.fase = "tienda"
-            shop.generar_tienda(state)
+            tienda.generar_tienda(state)
             mensaje = "Victoria!"
             mensaje_timer = 180
         end

@@ -1,8 +1,9 @@
-local world = {}
+local mundo = {}
 
-local COLORS = require("data.colors")
+local COLORES = require("datos.colors")
+local siguiente_id_rival = 1000
 
-function world.nuevo_mundo(state)
+function mundo.nuevo_mundo(state)
     state.mundo_actual = (state.mundo_actual or 0) + 1
     state.nivel_mundo = (state.nivel_mundo or 0) + 1
     state.nivel_actual = 1
@@ -11,10 +12,10 @@ function world.nuevo_mundo(state)
     state.es_jefe = false
     state.es_tienda = false
     state.en_combate = true
-    world.generar_rival(state)
+    mundo.generar_rival(state)
 end
 
-function world.generar_rival(state)
+function mundo.generar_rival(state)
     local nivel = state.nivel_actual
     local mundo = state.mundo_actual
 
@@ -32,11 +33,14 @@ function world.generar_rival(state)
         mazo = {},
     }
 
-    -- Generar mazo rival
-    for color, _ in pairs(COLORS) do
-        for valor = 0, 9 do
-            if valor <= math.min(9, mundo + 2) then
-                table.insert(rival.mazo, { id = math.random(99999), valor = valor, color = color, dano_base = valor })
+    -- Generar mazo rival (1 cero + 2 de cada número por color = 19 cartas/color, 76 total)
+    for color, _ in pairs(COLORES) do
+        local id = siguiente_id_rival; siguiente_id_rival = siguiente_id_rival + 1
+        table.insert(rival.mazo, { id = id, valor = 0, color = color, dano_base = 0 })
+        for valor = 1, 9 do
+            for _ = 1, 2 do
+                local id = siguiente_id_rival; siguiente_id_rival = siguiente_id_rival + 1
+                table.insert(rival.mazo, { id = id, valor = valor, color = color, dano_base = valor })
             end
         end
     end
@@ -51,12 +55,17 @@ function world.generar_rival(state)
         end
     end
 
+    -- Preservar cartas del jugador en la mesa antes de limpiarla
+    for _, c in ipairs(state.mesa or {}) do
+        if c.es_jugador then table.insert(state.mazo_jugador, c) end
+    end
+    state.mesa = {}
+
     state.rival = rival
     state.mazo_rival = rival.mazo
-    state.mesa = {}
 end
 
-function world.avanzar_nivel(state)
+function mundo.avanzar_nivel(state)
     state.nivel_actual = state.nivel_actual + 1
     state.en_combate = true
     state.es_tienda = false
@@ -65,23 +74,23 @@ function world.avanzar_nivel(state)
 
     if state.nivel_actual > state.niveles_mundo then
         -- Bonus antes del jefe (cada 2 mundos)
-        if state.mundo_actual % 2 == 0 and not state.bonus_usado then
+        if state.mundo_actual % 2 == 0 and not state.bono_usado then
             state.es_bonus = true
-            state.bonus_options = world.generar_bonus()
-            state.bonus_usado = true
+            state.opcion_bono = mundo.generar_bonus()
+            state.bono_usado = true
             return "bonus"
         else
             state.es_jefe = true
-            world.generar_jefe(state)
+            mundo.generar_jefe(state)
             return "boss"
         end
     else
-        world.generar_rival(state)
+        mundo.generar_rival(state)
         return "combat"
     end
 end
 
-function world.generar_bonus()
+function mundo.generar_bonus()
     local opciones = {
         { id = "deidad", nombre = "Deidad del entrenamiento",
           descripcion = "Elige un poder (cuesta oro, comida o cartas)",
@@ -108,7 +117,7 @@ function world.generar_bonus()
     return disponibles
 end
 
-function world.generar_jefe(state)
+function mundo.generar_jefe(state)
     local mundo = state.mundo_actual
     local vida_base = 80 + (mundo - 1) * 40
     local jefe = {
@@ -123,13 +132,15 @@ function world.generar_jefe(state)
         mazo = {},
     }
 
-    -- Mazo especializado del jefe
+    -- Mazo del jefe (1 cero + 2 de cada número por color, 76 total)
     local colores_jefe = {"Rojo", "Azul", "Verde", "Amarillo"}
     for _, color in ipairs(colores_jefe) do
-        for valor = 0, 9 do
-            local n = math.random(1, 3)
-            for _ = 1, n do
-                table.insert(jefe.mazo, { id = math.random(99999), valor = valor, color = color, dano_base = valor })
+        local id = siguiente_id_rival; siguiente_id_rival = siguiente_id_rival + 1
+        table.insert(jefe.mazo, { id = id, valor = 0, color = color, dano_base = 0 })
+        for valor = 1, 9 do
+            for _ = 1, 2 do
+                local id = siguiente_id_rival; siguiente_id_rival = siguiente_id_rival + 1
+                table.insert(jefe.mazo, { id = id, valor = valor, color = color, dano_base = valor })
             end
         end
     end
@@ -148,12 +159,17 @@ function world.generar_jefe(state)
         jefe.tiene_ser = true
     end
 
+    -- Preservar cartas del jugador en la mesa antes de limpiarla
+    for _, c in ipairs(state.mesa or {}) do
+        if c.es_jugador then table.insert(state.mazo_jugador, c) end
+    end
+    state.mesa = {}
+
     state.rival = jefe
     state.mazo_rival = jefe.mazo
-    state.mesa = {}
 end
 
-function world.procesar_victoria(state)
+function mundo.procesar_victoria(state)
     -- Cálculo de oro
     local oro_vida = math.floor(state.jugador.vida / 10)
     local oro_inventario = math.floor((state.oro or 0) / 3)
@@ -173,13 +189,13 @@ function world.procesar_victoria(state)
 
     -- Reiniciar estado de combate
     state.turno_actual = 1
-    state.jugador:remove_status("aturdido")
+    state.jugador:eliminar_estados("aturdido")
     state.aturdido = 0
 end
 
-function world.procesar_derrota(state)
+function mundo.procesar_derrota(state)
     -- Contrato maldito
-    for _, r in ipairs(state.relics or {}) do
+    for _, r in ipairs(state.reliquias or {}) do
         if r.id == "contrato_maldito" then
             if r.on_muerte(state) then
                 state.en_combate = true
@@ -196,11 +212,11 @@ function world.procesar_derrota(state)
             state.oro = 0
             if #state.poderes > 0 then table.remove(state.poderes, math.random(#state.poderes)) end
         end
-        if state.phoenix_on_muerte then state.phoenix_on_muerte(state) end
+        if state.phoenix_al_morir then state.phoenix_al_morir(state) end
         state.jugador.vida = state.jugador.vida_max
         return "revivido"
     end
     return "game_over"
 end
 
-return world
+return mundo

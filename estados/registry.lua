@@ -11,15 +11,15 @@ status_effects.quemado = {
         return cargas - 1
     end,
     on_aplicar = function(state, cargas, portador)
-        if portador:has_status("mojado") then
-            portador:remove_status("mojado")
+        if portador:tiene_estados("mojado") then
+            portador:eliminar_estados("mojado")
             return 0
         end
         return cargas
     end,
     on_remove = function(state, portador)
-        if portador:has_status("mojado") then
-            portador:remove_status("mojado")
+        if portador:tiene_estados("mojado") then
+            portador:eliminar_estados("mojado")
         end
     end,
 }
@@ -39,12 +39,12 @@ status_effects.mojado = {
         end
     end,
     on_aplicar = function(state, cargas, portador)
-        if portador:has_status("quemado") then
-            portador:remove_status("quemado")
+        if portador:tiene_estados("quemado") then
+            portador:eliminar_estados("quemado")
             return 0
         end
-        if portador:has_status("veneno") then
-            portador:remove_status("veneno")
+        if portador:tiene_estados("veneno") then
+            portador:eliminar_estados("veneno")
         end
         return cargas
     end,
@@ -57,7 +57,7 @@ status_effects.veneno = {
     max_cargas = nil,
     on_turn_end = function(state, cargas, portador)
         local dmg = math.floor(portador.vida_max * 0.01 * cargas)
-        if portador:has_status("descomposicion") then
+        if portador:tiene_estados("descomposicion") then
             dmg = dmg + (portador.status_cargas.descomposicion or 0)
         end
         portador.vida = portador.vida - dmg
@@ -75,7 +75,7 @@ status_effects.descomposicion = {
     max_cargas = nil,
     on_turn_end = function(state, cargas, portador)
         local extra = 0
-        if portador:has_status("veneno") then extra = cargas end
+        if portador:tiene_estados("veneno") then extra = cargas end
         local dmg = cargas * 2 + extra
         portador.vida = portador.vida - dmg
         return math.max(0, cargas - 2)

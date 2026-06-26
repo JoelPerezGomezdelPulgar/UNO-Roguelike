@@ -1,9 +1,13 @@
-local damage = {}
+local dano = {}
 
-function damage.calcular_multiplicador(cartas)
+function dano.calcular_multiplicador(cartas)
     if #cartas == 0 then return 1 end
+    -- Ordenar por valor para que escaleras funcionen en cualquier orden de selección
+    local sorted = {}
+    for _, c in ipairs(cartas) do table.insert(sorted, c) end
+    table.sort(sorted, function(a, b) return a.valor < b.valor end)
     local valores, colores = {}, {}
-    for _, c in ipairs(cartas) do
+    for _, c in ipairs(sorted) do
         table.insert(valores, c.valor)
         table.insert(colores, c.color)
     end
@@ -22,11 +26,12 @@ function damage.calcular_multiplicador(cartas)
         end
         if valores[1] == valores[2] and valores[2] == valores[3] then return 3 end
         if valores[1] + 1 == valores[2] and valores[2] + 1 == valores[3] then return 3 end
+        if valores[1] == valores[2] or valores[2] == valores[3] or valores[1] == valores[3] then return 2 end
     end
     return 1
 end
 
-function damage.calcular_dano(cartas, state)
+function dano.calcular_dano(cartas, state)
     local suma = 0
     for _, c in ipairs(cartas) do
         local dmg = c.dano_base or c.valor
@@ -35,7 +40,7 @@ function damage.calcular_dano(cartas, state)
             dmg = dmg + state.furia_activa
         end
         -- Reliquias: on_card_damage
-        for _, r in ipairs(state.relics or {}) do
+        for _, r in ipairs(state.reliquias or {}) do
             if r.on_card_damage then dmg = dmg + r.on_card_damage(c, state) end
         end
         -- Numero marcado
@@ -53,7 +58,7 @@ function damage.calcular_dano(cartas, state)
         if state.hermes_penaliza and state.hermes_penaliza[c.color] then
             dmg = dmg - (dmg * state.hermes_penaliza[c.color])
         end
-        if state.poseidon_dano_mojado and state.rival:has_status("mojado") then
+        if state.poseidon_dano_mojado and state.rival:tiene_estados("mojado") then
             dmg = dmg + state.poseidon_dano_mojado
         end
         -- Puño avaricia
@@ -79,11 +84,11 @@ function damage.calcular_dano(cartas, state)
     return suma
 end
 
-function damage.aplicar_estados(cartas, state)
+function dano.aplicar_estados(cartas, state)
     for _, c in ipairs(cartas) do
         if c.efectos then
             for _, ef in ipairs(c.efectos) do
-                local efecto_def = require("cards.effects")[ef]
+                local efecto_def = require("cartas.effects")[ef]
                 if efecto_def and efecto_def.aplicar then
                     efecto_def.aplicar(c, state)
                 end
@@ -91,21 +96,21 @@ function damage.aplicar_estados(cartas, state)
         end
         -- Poseidón: azul aplica mojado
         if state.poseidon_mojado and c.color == "Azul" then
-            state.rival:aplicar_status("mojado", 3)
+            state.rival:aplicar_estados("mojado", 3)
         end
         -- Basilisco: verde aplica descomposición
         if state.basilisco_descomposicion and c.color == "Verde" then
-            state.rival:aplicar_status("descomposicion", state.basilisco_descomposicion)
+            state.rival:aplicar_estados("descomposicion", state.basilisco_descomposicion)
         end
         if state.basilisco_envenena then
-            state.rival:aplicar_status("veneno", 1)
+            state.rival:aplicar_estados("veneno", 1)
         end
     end
 end
 
-function damage.calcular_mult_final(state, cartas)
+function dano.calcular_mult_final(state, cartas)
     local mult = 1
-    for _, r in ipairs(state.relics or {}) do
+    for _, r in ipairs(state.reliquias or {}) do
         if r.on_mult then mult = mult * r.on_mult(state) end
         if r.on_pre_mult then mult = mult * r.on_pre_mult(state) end
     end
@@ -115,7 +120,7 @@ function damage.calcular_mult_final(state, cartas)
     -- Ojo de Ra
     mult = mult * (1 + (state.ojo_ra_mult or 0))
     -- Piedra imán
-    for _, r in ipairs(state.relics or {}) do
+    for _, r in ipairs(state.reliquias or {}) do
         if r.on_post_mult then mult = mult * r.on_post_mult(state, cartas) end
     end
     -- Poseidón: mult azul si hay azul
@@ -129,12 +134,12 @@ function damage.calcular_mult_final(state, cartas)
     return mult
 end
 
-function damage.procesar_cartas_jugadas(cartas, state)
+function dano.procesar_cartas_jugadas(cartas, state)
     -- Aplicar efectos de carta individuales
     for _, c in ipairs(cartas) do
         if c.efectos then
             for _, ef in ipairs(c.efectos) do
-                local ef_def = require("cards.effects")[ef]
+                local ef_def = require("cartas.effects")[ef]
                 if ef_def and ef_def.on_play then
                     local result = ef_def.on_play(c, state)
                     if result == "return_to_hand" then
@@ -156,4 +161,4 @@ function damage.procesar_cartas_jugadas(cartas, state)
     end
 end
 
-return damage
+return dano

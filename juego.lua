@@ -1,9 +1,9 @@
-local combat = require("combat.init")
-local world = require("world")
+local combate = require("combate.init")
+local mundo = require("mundo")
 
-local game = {}
+local juego = {}
 
-function game.nuevo_juego()
+function juego.nuevo_juego()
     local state = {
         -- Jugador
         jugador = {
@@ -21,18 +21,18 @@ function game.nuevo_juego()
         oro = 10,
         comida = 0,
         -- Colecciones
-        relics = {},
+        reliquias = {},
         poderes = {},
         objetos = {},
         seres = {},
         -- Panel de reliquias
-        relic_offset = 0,
-        relic_slot_w = 100,
-        relic_panel_x = 20,
-        relic_panel_y = 265,
-        relic_panel_w = 430,
-        relic_dragging = nil,
-        relic_drag_start_x = nil,
+        reliquias_offset = 0,
+        reliquias_hueco_w = 100,
+        reliquias_panel_x = 20,
+        reliquias_panel_y = 265,
+        reliquias_panel_w = 430,
+        arrastrando_reliquia = nil,
+        arrastrar_inicio_x = nil,
         -- Flags
         lagrimas_usadas = 0,
         fase = "menu",
@@ -43,11 +43,11 @@ function game.nuevo_juego()
     return state
 end
 
-function game.iniciar_partida(state)
-    local card_defs = require("data.cards")
+function juego.iniciar_partida(state)
+    local card_defs = require("datos.cards")
     local mazo = {}
     for _, c in pairs(card_defs) do
-        table.insert(mazo, { id = c.id, valor = c.valor, color = c.color, dano_base = c.dano_base })
+        table.insert(mazo, { id = c.id, valor = c.valor, color = c.color, dano_base = c.dano_base, es_jugador = true })
     end
     -- Shuffle
     for i = #mazo, 2, -1 do
@@ -59,64 +59,64 @@ function game.iniciar_partida(state)
     state.jugador.vida = 100
     state.jugador.vida_max = 100
     state.oro = 10
-    state.relics = {}
+    state.reliquias = {}
     state.poderes = {}
     state.objetos = {}
     state.seres = {}
 
-    world.nuevo_mundo(state)
-    combat.init(state)
+    mundo.nuevo_mundo(state)
+    combate.iniciar(state)
     state.fase = "combat"
 end
 
-function game.turno_jugador(state, accion, datos)
+function juego.turno_jugador(state, accion, datos)
     if state.fase ~= "combat" then return nil end
 
-    local inicio = combat.start_turn(state, true)
+    local inicio = combate.iniciar_turno(state, true)
     if inicio == "aturdido" then
         if accion == "saltar" then
-            combat.end_turn(state)
-            game.turno_ia(state)
+            combate.finalizar_turno(state)
+            juego.turno_ia(state)
             return { mensaje = "Turno saltado (aturdido)" }
         elseif accion == "robar" then
-        combat.robar_carta(state, true)
+        combate.robar_carta(state, true)
         end
         return { mensaje = "Estás aturdido" }
     end
 
     if accion == "jugar" then
-        local resultado = combat.jugar_cartas(state, datos.indices)
+        local resultado = combate.jugar_cartas(state, datos.indices)
         if resultado and resultado.dano then
-            combat.end_turn(state)
+            combate.finalizar_turno(state)
             -- check rival death
             if state.rival.vida <= 0 then
-                world.procesar_victoria(state)
+                mundo.procesar_victoria(state)
                 state.fase = "tienda"
                 return { type = "victoria", mensaje = "Victoria!" }
             end
             -- turno de IA
-            game.turno_ia(state)
+            juego.turno_ia(state)
             return resultado
         end
         return resultado
     elseif accion == "robar" then
-        combat.robar_carta(state, true)
+        combate.robar_carta(state, true)
         if state.roboGratis and state.roboGratis > 0 then
             state.roboGratis = state.roboGratis - 1
         else
             state.jugador.turno_ultimo = "robo"
-            combat.end_turn(state)
-            game.turno_ia(state)
+            combate.finalizar_turno(state)
+            juego.turno_ia(state)
         end
         return { mensaje = "Robaste una carta" }
     elseif accion == "usar_poder" then
-        return game.usar_poder(state, datos.poder_idx, datos.target)
+        return juego.usar_poder(state, datos.poder_idx, datos.target)
     elseif accion == "usar_objeto" then
-        return game.usar_objeto(state, datos.objeto_idx, datos.target)
+        return juego.usar_objeto(state, datos.objeto_idx, datos.target)
     end
 end
 
-function game.turno_ia(state)
+function juego.turno_ia(state)
     -- Simple AI: buscar mejor jugada
     if state.rival.vida <= 0 then return end
 
@@ -141,10 +141,18 @@ function game.turno_ia(state)
             for _, i in ipairs(combo) do table.insert(cartas, state.rival.mano[i]) end
             local top = state.mesa[#state.mesa]
             local ok = true
-            for _, carta in ipairs(cartas) do
-                if top and not (carta.valor == top.valor or carta.color == top.color or
-                   (type(carta.valor) == "number" and type(top.valor) == "number" and carta.valor == top.valor + 1)) then
-                    ok = false; break
+            for i, carta in ipairs(cartas) do
+                if top then
+                    if i == 1 then
+                        if not (carta.valor == top.valor or carta.color == top.color) then
+                            ok = false; break
+                        end
+                    else
+                        if not (carta.valor == top.valor or carta.color == top.color or
+                           (type(carta.valor) == "number" and type(top.valor) == "number" and carta.valor == top.valor + 1)) then
+                            ok = false; break
+                        end
+                    end
                 end
                 top = carta
             end
@@ -171,7 +179,7 @@ function game.turno_ia(state)
         -- Reducción de daño
         dano = math.max(0, dano - state.reduccion_dano)
         -- Escudo de éter
-        for _, r in ipairs(state.relics or {}) do
+        for _, r in ipairs(state.reliquias or {}) do
             if r.on_enemy_card_damage then dano = dano + r.on_enemy_card_damage(cartas[1], state) end
         end
 
@@ -184,14 +192,14 @@ function game.turno_ia(state)
 
         state.jugador.vida = state.jugador.vida - dano
     else
-        combat.robar_carta(state, false)
+        combate.robar_carta(state, false)
     end
 end
 
-function game.usar_poder(state, idx, target)
+function juego.usar_poder(state, idx, target)
     if not state.poderes[idx] then return { mensaje = "Poder no encontrado" } end
     local poder = state.poderes[idx]
-    local def = require("powers.registry")[poder.id]
+    local def = require("poderes.registry")[poder.id]
     if not def then return { mensaje = "Poder desconocido" } end
 
     -- Check cooldown
@@ -205,36 +213,36 @@ function game.usar_poder(state, idx, target)
     return resultado
 end
 
-function game.usar_objeto(state, idx, target)
+function juego.usar_objeto(state, idx, target)
     if not state.objetos[idx] then return { mensaje = "Objeto no encontrado" } end
     local obj = state.objetos[idx]
-    local def = require("items.registry")[obj.id]
+    local def = require("objetos.registry")[obj.id]
     if not def then return { mensaje = "Objeto desconocido" } end
 
-    state.items_target = target
+    state.objetos_objetivo = target
     local resultado = def.usar(state)
     table.remove(state.objetos, idx)
     return resultado
 end
 
-function game.comprar_tienda(state, idx)
-    local shop = require("shop")
-    return shop.comprar(state, idx)
+function juego.comprar_tienda(state, idx)
+    local tienda = require("tienda")
+    return tienda.comprar(state, idx)
 end
 
-function game.reroll_tienda(state)
-    local shop = require("shop")
-    return shop.reroll(state)
+function juego.reroll_tienda(state)
+    local tienda = require("tienda")
+    return tienda.reroll(state)
 end
 
 -- Helper methods on jugador/rival
-local entity_methods = {}
-function entity_methods:has_status(id)
+local metodos_entidades = {}
+function metodos_entidades:tiene_estados(id)
     return self.status and self.status[id] and self.status[id] > 0
 end
-function entity_methods:aplicar_status(id, cargas)
+function metodos_entidades:aplicar_estados(id, cargas)
     self.status = self.status or {}
-    local def = require("status.registry")[id]
+    local def = require("estados.registry")[id]
     if def and def.on_aplicar then
         cargas = def.on_aplicar(self, cargas, self) or cargas
     end
@@ -243,20 +251,20 @@ function entity_methods:aplicar_status(id, cargas)
         self.status[id] = max and math.min(max, (self.status[id] or 0) + cargas) or (self.status[id] or 0) + cargas
     end
 end
-function entity_methods:remove_status(id)
+function metodos_entidades:eliminar_estados(id)
     if self.status then
-        local def = require("status.registry")[id]
+        local def = require("estados.registry")[id]
         if def and def.on_remove then def.on_remove(self) end
         self.status[id] = nil
     end
 end
 
 -- Attach methods to entities
-function game.init_entity_methods(state)
-    setmetatable(state.jugador, { __index = entity_methods })
+function juego.iniciar_metodos_entidades(state)
+    setmetatable(state.jugador, { __index = metodos_entidades })
     if state.rival then
-        setmetatable(state.rival, { __index = entity_methods })
+        setmetatable(state.rival, { __index = metodos_entidades })
     end
 end
 
-return game
+return juego

@@ -14,7 +14,7 @@ items.lagrima_fenix = {
 }
 
 local function transformar_color(state, color)
-    for _, i in ipairs(state.items_target or {}) do
+    for _, i in ipairs(state.objetos_objetivo or {}) do
         if state.jugador.mano[i] then
             state.jugador.mano[i].color = color
         end
@@ -32,7 +32,7 @@ items.moneda_cambio = {
     descripcion = "Intercambia el número de 2 cartas seleccionadas",
     precio_base = 6,
     usar = function(state)
-        local t = state.items_target or {}
+        local t = state.objetos_objetivo or {}
         if #t >= 2 then
             local v = state.jugador.mano[t[1]].valor
             state.jugador.mano[t[1]].valor = state.jugador.mano[t[2]].valor
@@ -47,7 +47,7 @@ items.tinta_cambio = {
     descripcion = "Intercambia el color de 2 cartas seleccionadas",
     precio_base = 6,
     usar = function(state)
-        local t = state.items_target or {}
+        local t = state.objetos_objetivo or {}
         if #t >= 2 then
             local c = state.jugador.mano[t[1]].color
             state.jugador.mano[t[1]].color = state.jugador.mano[t[2]].color
@@ -62,7 +62,7 @@ items.martillo_roto = {
     descripcion = "25% mejorar carta, 5% eliminar efectos",
     precio_base = 4,
     usar = function(state)
-        local t = state.items_target or {}
+        local t = state.objetos_objetivo or {}
         if #t >= 1 then
             local carta = state.jugador.mano[t[1]]
             if math.random() < 0.25 then
@@ -92,7 +92,7 @@ items.caja_pandora = {
     usar = function(state)
         local efectos = {"quemado", "mojado", "veneno", "descomposicion"}
         local e = efectos[math.random(#efectos)]
-        state.rival:aplicar_status(e, 5)
+        state.rival:aplicar_estados(e, 5)
         return { mensaje = "Rival sufre " .. e }
     end,
 }
@@ -112,7 +112,7 @@ items.fragmento_estelar = {
     descripcion = "Destruye 2 cartas seleccionadas de tu mano",
     precio_base = 4,
     usar = function(state)
-        local t = state.items_target or {}
+        local t = state.objetos_objetivo or {}
         table.sort(t, function(a,b) return a > b end)
         for _, i in ipairs(t) do
             table.remove(state.jugador.mano, i)
@@ -141,7 +141,7 @@ items.carbon_ardiente = {
     descripcion = "5 cargas de quemado al rival",
     precio_base = 4,
     usar = function(state)
-        state.rival:aplicar_status("quemado", 5)
+        state.rival:aplicar_estados("quemado", 5)
         return { mensaje = "Rival quemado" }
     end,
 }

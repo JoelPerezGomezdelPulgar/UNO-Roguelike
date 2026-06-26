@@ -1,8 +1,8 @@
-local colors = require("data.colors")
+local colores = require("datos.colors")
 
 local card_defs = {}
 local id = 0
-for color_name, _ in pairs(colors) do
+for color_name, _ in pairs(colores) do
     id = id + 1
     card_defs[id] = {
         id = id,
@@ -10,7 +10,7 @@ for color_name, _ in pairs(colors) do
         color = color_name,
         dano_base = 0,
     }
-    for valor = 1, 1 do
+    for valor = 1, 2 do
         id = id + 1
         card_defs[id] = {
             id = id,

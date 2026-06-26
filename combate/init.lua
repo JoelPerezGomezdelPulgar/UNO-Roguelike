@@ -1,9 +1,9 @@
-local damage = require("combat.damage")
-local card_effects = require("cards.effects")
+local dano = require("combate.damage")
+local efectos_carta = require("cartas.effects")
 
-local combat = {}
+local combate = {}
 
-function combat.init(state)
+function combate.iniciar(state)
     state.turno_actual = 1
     state.aturdido = 0
     state.veloz_activo = 0
@@ -22,7 +22,7 @@ function combat.init(state)
     state.roboGratis = 0
 
     -- init hooks on relics
-    for _, r in ipairs(state.relics or {}) do
+    for _, r in ipairs(state.reliquias or {}) do
         if r.on_init_combat then r.on_init_combat(state) end
         if r.on_combat_start then r.on_combat_start(state) end
     end
@@ -56,13 +56,13 @@ function combat.init(state)
     state.mazo_jugador = pool
 
     -- Re-attach entity methods (rival may be new after avanzar_nivel)
-    local game_mod = require("game")
-    game_mod.init_entity_methods(state)
+    local game_mod = require("juego")
+    game_mod.iniciar_metodos_entidades(state)
 
     -- Cooldown de poderes por combate (C)
     for _, p in ipairs(state.poderes or {}) do
         if p.cooldown_actual and p.cooldown_actual > 0 then
-            local def = require("powers.registry")[p.id]
+            local def = require("poderes.registry")[p.id]
             if def and def.cooldown and def.cooldown.type == "combates" then
                 p.cooldown_actual = p.cooldown_actual - 1
             end
@@ -70,7 +70,7 @@ function combat.init(state)
     end
 end
 
-function combat.start_turn(state, es_jugador)
+function combate.iniciar_turno(state, es_jugador)
     local entity = es_jugador and state.jugador or state.rival
     state.turn_entity = entity
     state.veloz_activo = 0
@@ -78,7 +78,7 @@ function combat.start_turn(state, es_jugador)
 
     -- status effects on turn start
     for status_id, cargas in pairs(entity.status) do
-        local def = require("status.registry")[status_id]
+        local def = require("estados.registry")[status_id]
         if def and def.on_turn_start then
             local nuevas = def.on_turn_start(state, cargas, entity)
             if nuevas ~= nil then
@@ -97,7 +97,7 @@ function combat.start_turn(state, es_jugador)
 
     -- antídoto débil
     if es_jugador then
-        for _, r in ipairs(state.relics or {}) do
+        for _, r in ipairs(state.reliquias or {}) do
             if r.on_turn_start then r.on_turn_start(state) end
         end
     end
@@ -108,7 +108,7 @@ function combat.start_turn(state, es_jugador)
     end
 end
 
-function combat.jugar_cartas(state, indices)
+function combate.jugar_cartas(state, indices)
     if state.aturdido and state.aturdido > 0 then return { mensaje = "Estás aturdido" } end
 
     local jugador = state.jugador
@@ -121,28 +121,84 @@ function combat.jugar_cartas(state, indices)
     if #cartas_a_jugar == 0 then return { mensaje = "Sin cartas" } end
     if #cartas_a_jugar > 3 then return { mensaje = "Máximo 3 cartas" } end
 
-    -- Verificar jugabilidad secuencial
+    -- Verificar jugabilidad: probar orden original y luego permutaciones
     local top = state.mesa and state.mesa[#state.mesa]
-    for _, c in ipairs(cartas_a_jugar) do
-        if top and not (c.valor == top.valor or c.color == top.color or (type(c.valor) == "number" and type(top.valor) == "number" and c.valor == top.valor + 1)) then
-            return { mensaje = "No se puede jugar " .. tostring(c) .. " sobre " .. tostring(top) }
+    local function validar(orden)
+        if not top then return true end
+        local ant = top
+        for _, c in ipairs(orden) do
+            if not (c.valor == ant.valor or c.color == ant.color or (type(c.valor) == "number" and type(ant.valor) == "number" and c.valor == ant.valor + 1)) then
+                return false
+            end
+            ant = c
         end
-        top = c
+        return true
+    end
+    local function permutar(arr, n, usado, actual, resultados)
+        if #actual == n then
+            local copia = {}
+            for _, idx in ipairs(actual) do table.insert(copia, arr[idx]) end
+            table.insert(resultados, copia)
+            return
+        end
+        for i = 1, n do
+            if not usado[i] then
+                usado[i] = true
+                table.insert(actual, i)
+                permutar(arr, n, usado, actual, resultados)
+                table.remove(actual)
+                usado[i] = false
+            end
+        end
+    end
+    if not validar(cartas_a_jugar) then
+        local n = #cartas_a_jugar
+        local resultados = {}
+        permutar(cartas_a_jugar, n, {}, {}, resultados)
+        local valido = false
+        for _, orden in ipairs(resultados) do
+            if validar(orden) then
+                cartas_a_jugar = orden
+                valido = true
+                break
+            end
+        end
+        if not valido then
+            return { mensaje = "No se puede jugar esa combinación" }
+        end
     end
 
     -- Procesar efectos antes de daño
-    damage.procesar_cartas_jugadas(cartas_a_jugar, state)
+    dano.procesar_cartas_jugadas(cartas_a_jugar, state)
 
     -- Calcular daño base por carta
-    local suma_dano = damage.calcular_dano(cartas_a_jugar, state)
+    local suma_dano = dano.calcular_dano(cartas_a_jugar, state)
     state.danoBase = suma_dano
 
     -- Calcular multiplicador
-    local mult = damage.calcular_multiplicador(cartas_a_jugar)
-    mult = mult * damage.calcular_mult_final(state, cartas_a_jugar)
-    state.danoMulti = mult
-
-    local dano_total = math.floor(suma_dano * mult)
+    local mult_base = dano.calcular_multiplicador(cartas_a_jugar)
+    local mult_final = dano.calcular_mult_final(state, cartas_a_jugar)
+    local dano_total
+    if mult_base == 2 and #cartas_a_jugar == 3 then
+        local vals = {}
+        for _, c in ipairs(cartas_a_jugar) do table.insert(vals, c.valor) end
+        local par1, par2, solo
+        if vals[1] == vals[2] then
+            par1, par2, solo = 1, 2, 3
+        elseif vals[2] == vals[3] then
+            par1, par2, solo = 2, 3, 1
+        else
+            par1, par2, solo = 1, 3, 2
+        end
+        local dmg_par = dano.calcular_dano({cartas_a_jugar[par1], cartas_a_jugar[par2]}, state)
+        local dmg_solo = dano.calcular_dano({cartas_a_jugar[solo]}, state)
+        dano_total = math.floor(dmg_par * mult_base * mult_final + dmg_solo)
+        state.danoMulti = mult_base
+    else
+        local mult = mult_base * mult_final
+        state.danoMulti = mult
+        dano_total = math.floor(suma_dano * mult)
+    end
 
     -- Aplicar penalización daño recibido (seres)
     if state.dano_pct then dano_total = math.floor(dano_total * state.dano_pct) end
@@ -172,18 +228,15 @@ function combat.jugar_cartas(state, indices)
         table.insert(state.mesa, c)
     end
 
-    -- Aplicar estados a través de cartas
-    damage.aplicar_estados(cartas_a_jugar, state)
-
     -- Reliquias: on_play_card, on_escalera, etc.
-    for _, r in ipairs(state.relics or {}) do
+    for _, r in ipairs(state.reliquias or {}) do
         if r.on_play_card then
             for _, c in ipairs(cartas_a_jugar) do
                 local res = r.on_play_card(c, state)
                 if res and res.oro then state.oro = (state.oro or 0) + res.oro end
             end
         end
-        if r.on_escalera and damage.calcular_multiplicador(cartas_a_jugar) >= 3 then
+        if r.on_escalera and dano.calcular_multiplicador(cartas_a_jugar) >= 3 then
             local res = r.on_escalera(state)
             if res then state.comida = (state.comida or 0) + res end
         end
@@ -201,14 +254,17 @@ function combat.jugar_cartas(state, indices)
         end
     end
 
+    -- Aplicar estados a través de cartas (después de reliquias para que blasón elemental agregue "descompuesta" antes)
+    dano.aplicar_estados(cartas_a_jugar, state)
+
     -- Seres: dioniso oro por escalera
-    if state.dioniso_oro_escalera and damage.calcular_multiplicador(cartas_a_jugar) >= 3 then
+    if state.dioniso_oro_escalera and dano.calcular_multiplicador(cartas_a_jugar) >= 3 then
         state.oro = (state.oro or 0) + state.dioniso_oro_escalera
     end
-    if state.dioniso_comida_escalera and damage.calcular_multiplicador(cartas_a_jugar) >= 3 then
+    if state.dioniso_comida_escalera and dano.calcular_multiplicador(cartas_a_jugar) >= 3 then
         state.comida = (state.comida or 0) + state.dioniso_comida_escalera
     end
-    if state.hidra_penaliza_escalera and damage.calcular_multiplicador(cartas_a_jugar) >= 3 then
+    if state.hidra_penaliza_escalera and dano.calcular_multiplicador(cartas_a_jugar) >= 3 then
         state.oro = math.max(0, (state.oro or 0) - state.hidra_penaliza_escalera)
     end
     if state.hidra_dano_amarillo then
@@ -261,7 +317,7 @@ function combat.jugar_cartas(state, indices)
     end
 
     -- Gema del caos: trío aplica efecto
-    for _, r in ipairs(state.relics or {}) do
+    for _, r in ipairs(state.reliquias or {}) do
         if r.id == "gema_caos" then
             local v = {}
             for _, c in ipairs(cartas_a_jugar) do table.insert(v, c.valor) end
@@ -270,7 +326,7 @@ function combat.jugar_cartas(state, indices)
     end
 
     -- Sello de sangre
-    for _, r in ipairs(state.relics or {}) do
+    for _, r in ipairs(state.reliquias or {}) do
         if r.id == "sello_sangre" then
             state.jugador.vida = math.min(state.jugador.vida_max, state.jugador.vida + #cartas_a_jugar)
         end
@@ -284,15 +340,20 @@ function combat.jugar_cartas(state, indices)
     }
 end
 
-function combat.robar_carta(state, es_jugador)
+function combate.robar_carta(state, es_jugador)
     local entity = es_jugador and state.jugador or state.rival
     local mazo = es_jugador and state.mazo_jugador or state.mazo_rival
 
-    -- Reciclar mesa si mazo vacío
+    -- Reciclar mesa si mazo vacío (solo cartas del jugador)
     if #mazo == 0 and #state.mesa > 1 then
         local top = table.remove(state.mesa)
-        for _, c in ipairs(state.mesa) do table.insert(mazo, c) end
+        local restantes = {}
+        for _, c in ipairs(state.mesa) do
+            if c.es_jugador then table.insert(mazo, c)
+            else table.insert(restantes, c) end
+        end
         state.mesa = { top }
+        for _, c in ipairs(restantes) do table.insert(state.mesa, c) end
         for i = #mazo, 2, -1 do
             local j = math.random(i)
             mazo[i], mazo[j] = mazo[j], mazo[i]
@@ -306,17 +367,17 @@ function combat.robar_carta(state, es_jugador)
     table.insert(entity.mano, carta)
 
     -- Guantes de seda
-    for _, r in ipairs(state.relics or {}) do
+    for _, r in ipairs(state.reliquias or {}) do
         if r.id == "guantes_seda" then carta._bono_robo = 1 end
     end
 
     return carta
 end
 
-function combat.end_turn(state)
+function combate.finalizar_turno(state)
     -- status effects on turn end
     for status_id, cargas in pairs(state.rival.status) do
-        local def = require("status.registry")[status_id]
+        local def = require("estados.registry")[status_id]
         if def and def.on_turn_end then
             local nuevas = def.on_turn_end(state, cargas, state.rival)
             if nuevas ~= nil then
@@ -326,7 +387,7 @@ function combat.end_turn(state)
         end
     end
     for status_id, cargas in pairs(state.jugador.status) do
-        local def = require("status.registry")[status_id]
+        local def = require("estados.registry")[status_id]
         if def and def.on_turn_end then
             local nuevas = def.on_turn_end(state, cargas, state.jugador)
             if nuevas ~= nil then
@@ -357,16 +418,16 @@ function combat.end_turn(state)
     -- Cooldown de poderes por turno (T)
     for _, p in ipairs(state.poderes or {}) do
         if p.cooldown_actual and p.cooldown_actual > 0 then
-            local def = require("powers.registry")[p.id]
+            local def = require("poderes.registry")[p.id]
             if def and def.cooldown and def.cooldown.type == "turnos" then
                 p.cooldown_actual = p.cooldown_actual - 1
             end
         end
     end
-    combat.mano_vacia_ataque(state)
+    combate.mano_vacia_ataque(state)
 end
 
-function combat.mano_vacia_ataque(state)
+function combate.mano_vacia_ataque(state)
     if #state.jugador.mano > 0 then return nil end
     local suma_mazo = 0
     for _, c in ipairs(state.mazo_jugador) do
@@ -377,21 +438,23 @@ function combat.mano_vacia_ataque(state)
     state.danoMulti = 10
     state.rival.vida = state.rival.vida - dano
     local cargas_aturdido = 2
-    for _, r in ipairs(state.relics or {}) do
+    for _, r in ipairs(state.reliquias or {}) do
         if r.on_aturdimiento then
             local red = r.on_aturdimiento(state)
             if red then cargas_aturdido = cargas_aturdido + red end
         end
     end
     if cargas_aturdido > 0 then
-        state.jugador:aplicar_status("aturdido", cargas_aturdido)
+        state.jugador:aplicar_estados("aturdido", cargas_aturdido)
         state.aturdido = cargas_aturdido
     end
 
-    -- Barajar mazo, mantener la última carta jugada en mesa
+    -- Barajar mazo, mantener la última carta jugada en mesa (solo cartas del jugador)
     local ultima_carta = table.remove(state.mesa)
     local pool = {}
-    for _, c in ipairs(state.mesa or {}) do table.insert(pool, c) end
+    for _, c in ipairs(state.mesa or {}) do
+        if c.es_jugador then table.insert(pool, c) end
+    end
     for _, c in ipairs(state.mazo_jugador or {}) do table.insert(pool, c) end
     state.mesa = {}
     state.mazo_jugador = {}
@@ -410,4 +473,4 @@ function combat.mano_vacia_ataque(state)
     return { dano = dano, mensaje = "Ataque final! " .. dano .. " daño pero aturdido 2 turnos" }
 end
 
-return combat
+return combate

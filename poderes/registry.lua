@@ -60,7 +60,7 @@ powers.rayo_electricidad = {
     descripcion = "25% vida máxima del rival (33% si está mojado)",
     cooldown = C(1),
     activar = function(state)
-        if state.rival:has_status("mojado") then
+        if state.rival:tiene_estados("mojado") then
             local dmg = math.floor(state.rival.vida_max * 0.33)
             state.rival.vida = state.rival.vida - dmg
             return { dano = dmg }
@@ -77,7 +77,7 @@ powers.gas_venenoso = {
     descripcion = "Envenena al rival",
     cooldown = C(2),
     activar = function(state)
-        state.rival:aplicar_status("veneno", 5)
+        state.rival:aplicar_estados("veneno", 5)
         return { mensaje = "Rival envenenado" }
     end,
 }
@@ -87,7 +87,7 @@ powers.cuchilla_hidraulica = {
     descripcion = "20 de daño y moja al rival",
     cooldown = T(6),
     activar = function(state)
-        state.rival:aplicar_status("mojado", 5)
+        state.rival:aplicar_estados("mojado", 5)
         state.rival.vida = state.rival.vida - 20
         return { dano = 20 }
     end,
@@ -118,7 +118,7 @@ powers.bola_fuego = {
     descripcion = "20 de daño y quema al rival",
     cooldown = T(6),
     activar = function(state)
-        state.rival:aplicar_status("quemado", 5)
+        state.rival:aplicar_estados("quemado", 5)
         state.rival.vida = state.rival.vida - 20
         return { dano = 20 }
     end,
@@ -147,7 +147,7 @@ powers.creacion_magica_avanzada = {
     cooldown = C(3),
     activar = function(state, target)
         local efectos_posibles = {"quemado", "mojado", "veneno", "temporal", "repetitivo", "incesante", "fantasmal", "veloz"}
-        local carta = { valor = target.valor, color = target.color, efectos = {efectos_posibles[math.random(#efectos_posibles)]}, dano_base = target.valor }
+        local carta = { valor = objetivo.valor, color = objetivo.color, efectos = {efectos_posibles[math.random(#efectos_posibles)]}, dano_base = objetivo.valor }
         carta.id = "temp_" .. math.random(99999)
         table.insert(state.jugador.mano, carta)
         return { mensaje = "Carta creada con efecto " .. carta.efectos[1] }
@@ -173,7 +173,7 @@ powers.deterioro = {
     descripcion = "10 de daño y 4 cargas de descomposición al rival",
     cooldown = T(3),
     activar = function(state)
-        state.rival:aplicar_status("descomposicion", 4)
+        state.rival:aplicar_estados("descomposicion", 4)
         return { dano = 10 }
     end,
 }
@@ -218,9 +218,9 @@ powers.entrenamiento = {
     descripcion = "Sube de nivel a un ser",
     cooldown = C(6),
     activar = function(state, being_idx)
-        if being_idx and state.beings[being_idx] then
-            state.beings[being_idx].nivel = math.min(3, (state.beings[being_idx].nivel or 1) + 1)
-            return { mensaje = state.beings[being_idx].nombre .. " subió a nivel " .. state.beings[being_idx].nivel }
+        if being_idx and state.seres[being_idx] then
+            state.seres[being_idx].nivel = math.min(3, (state.seres[being_idx].nivel or 1) + 1)
+            return { mensaje = state.seres[being_idx].nombre .. " subió a nivel " .. state.seres[being_idx].nivel }
         end
         return { mensaje = "Selecciona un ser" }
     end,

@@ -1,23 +1,23 @@
-local shop = {}
+local tienda = {}
 
 local shop_items = {
-    poderes = function(state) return require("powers.registry") end,
-    reliquias = function(state) return require("relics.registry") end,
-    objetos = function(state) return require("items.registry") end,
+    poderes = function(state) return require("poderes.registry") end,
+    reliquias = function(state) return require("reliquias.registry") end,
+    objetos = function(state) return require("objetos.registry") end,
 }
 
-function shop.generar_tienda(state)
+function tienda.generar_tienda(state)
     state.shop = {
         rerolls = 0,
         precio_reroll_base = 3,
         productos = {},
     }
     local pool = {}
-    for _, v in pairs(require("relics.registry")) do
+    for _, v in pairs(require("reliquias.registry")) do
         if v.rareza ~= "legendario" then table.insert(pool, v) end
     end
-    for _, v in pairs(require("items.registry")) do table.insert(pool, v) end
-    for _, v in pairs(require("powers.registry")) do table.insert(pool, v) end
+    for _, v in pairs(require("objetos.registry")) do table.insert(pool, v) end
+    for _, v in pairs(require("poderes.registry")) do table.insert(pool, v) end
 
     -- 3 productos aleatorios
     for i = 1, 3 do
@@ -36,14 +36,14 @@ function shop.generar_tienda(state)
     end
 end
 
-function shop.comprar(state, idx)
+function tienda.comprar(state, idx)
     if not state.shop or not state.shop.productos[idx] then return false end
     local prod = state.shop.productos[idx]
     if (state.oro or 0) < prod.precio then return false end
 
     state.oro = state.oro - prod.precio
     local item = prod.item
-    local tipo = determine_type(item)
+    local tipo = determinar_tipo(item)
     table.insert(state[tipo], item)
     table.remove(state.shop.productos, idx)
 
@@ -55,7 +55,7 @@ function shop.comprar(state, idx)
     return true
 end
 
-function shop.reroll(state)
+function tienda.reroll(state)
     if state.shop.ulises_reroll_usado then
         -- no more free rerolls
     end
@@ -63,25 +63,25 @@ function shop.reroll(state)
     if (state.oro or 0) < costo then return false end
     state.oro = state.oro - costo
     state.shop.rerolls = state.shop.rerolls + 1
-    shop.generar_tienda(state)
+    tienda.generar_tienda(state)
     return true
 end
 
-function shop.reroll_gratis(state)
+function tienda.reroll_gratis(state)
     if state.ulises_rerolls and state.ulises_rerolls > 0 then
         state.ulises_rerolls = state.ulises_rerolls - 1
-        shop.generar_tienda(state)
+        tienda.generar_tienda(state)
         return true
     end
     return false
 end
 
-function shop.generar_cuartel(state)
-    local beings = require("beings.registry")
+function tienda.generar_cuartel(state)
+    local beings = require("seres.registry")
     local pool = {}
     for _, v in pairs(beings) do
         -- filter by available types; each boss unlock more
-        if not state.shop.being_types_unlocked or state.shop.being_types_unlocked[v.tipo] then
+        if not state.shop.tipos_seres_desbloqueados or state.shop.tipos_seres_desbloqueados[v.tipo] then
             table.insert(pool, v)
         end
     end
@@ -96,20 +96,20 @@ function shop.generar_cuartel(state)
     state.shop.cuartel = disponibles
 end
 
-function shop.seleccionar_ser(state, idx)
+function tienda.seleccionar_ser(state, idx)
     if not state.shop.cuartel or not state.shop.cuartel[idx] then return false end
     local ser = state.shop.cuartel[idx]
 
     -- Check if same type exists (replace)
-    for i, existing in ipairs(state.beings) do
+    for i, existing in ipairs(state.seres) do
         if existing.tipo == ser.tipo then
-            table.remove(state.beings, i)
+            table.remove(state.seres, i)
             break
         end
     end
 
     local nuevo_ser = { id = ser.id, nombre = ser.nombre, tipo = ser.tipo, nivel = 1 }
-    table.insert(state.beings, nuevo_ser)
+    table.insert(state.seres, nuevo_ser)
 
     -- Apply effects
     if ser.niveles[1] then
@@ -121,7 +121,7 @@ function shop.seleccionar_ser(state, idx)
     return true
 end
 
-function shop.generar_mercader(state)
+function tienda.generar_mercader(state)
     local tipos_cofre = {"objetos", "cartas", "reliquias"}
     local tipo = tipos_cofre[math.random(#tipos_cofre)]
     local precio = 3 + math.random(3)
@@ -132,14 +132,14 @@ function shop.generar_mercader(state)
     }
     local pool = {}
     if tipo == "objetos" then
-        for _, v in pairs(require("items.registry")) do table.insert(pool, v) end
+        for _, v in pairs(require("objetos.registry")) do table.insert(pool, v) end
     elseif tipo == "reliquias" then
-        for _, v in pairs(require("relics.registry")) do
+        for _, v in pairs(require("reliquias.registry")) do
             if v.rareza ~= "legendario" then table.insert(pool, v) end
         end
     elseif tipo == "cartas" then
         -- random card
-        for _, v in pairs(require("data.cards")) do table.insert(pool, v) end
+        for _, v in pairs(require("datos.cards")) do table.insert(pool, v) end
     end
     for i = 1, 3 do
         if #pool > 0 then
@@ -150,7 +150,7 @@ function shop.generar_mercader(state)
     end
 end
 
-function shop.comprar_cofre(state)
+function tienda.comprar_cofre(state)
     if not state.shop.mercader then return false end
     if (state.oro or 0) < state.shop.mercader.precio then return false end
     state.oro = state.oro - state.shop.mercader.precio
@@ -161,10 +161,10 @@ function shop.comprar_cofre(state)
     return true
 end
 
-function determine_type(item)
+function determinar_tipo(item)
     if item.cooldown then return "poderes"
     elseif item.usar then return "objetos"
-    else return "relics" end
+    else return "reliquias" end
 end
 
-return shop
+return tienda

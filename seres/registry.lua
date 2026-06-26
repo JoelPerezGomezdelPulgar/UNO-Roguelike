@@ -42,7 +42,7 @@ beings.phoenix = make_being({
         [3] = {
             positivo = function(s)
                 s.phoenix_evita = 2
-                s.phoenix_on_muerte = function()
+                s.phoenix_al_morir = function()
                     s.oro = s.oro + 10
                     -- escoger poder entre 3 aleatorios
                 end
