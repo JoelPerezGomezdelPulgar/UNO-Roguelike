@@ -247,7 +247,7 @@ relics.amuleto_eco = {
     on_first_card = function(carta, state)
         for i = 1, 2 do
             -- re-play the card logic
-            state:repetir_carta(card)
+            state:repetir_carta(carta)
         end
     end
 }

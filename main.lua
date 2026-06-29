@@ -1,4 +1,4 @@
-if not table.unpack then table.unpack = unpack end
+if not table.unpack then table.unpack = rawget(_G, "unpack") end
 
 local COLORES = require("datos.colors")
 local juego = require("juego")
@@ -12,7 +12,7 @@ local mensaje = ""
 local mensaje_timer = 0
 local accion_pendiente = nil
 local mostrar_mano_rival = false
-local sel_inicio = nil
+local sel_inicio = 0
 local sel_arrastrando = false
 local sel_ultimo_idx = nil
 
@@ -511,7 +511,7 @@ function love.mousereleased(mx, my, button)
         state.arrastrando_reliquia = nil
     elseif button == 2 then
         sel_arrastrando = false
-        sel_inicio = nil
+        sel_inicio = 0
         sel_ultimo_idx = nil
     end
 end

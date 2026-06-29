@@ -179,6 +179,7 @@ function combate.jugar_cartas(state, indices)
     local mult_base = dano.calcular_multiplicador(cartas_a_jugar)
     local mult_final = dano.calcular_mult_final(state, cartas_a_jugar)
     local dano_total
+    local mult
     if mult_base == 2 and #cartas_a_jugar == 3 then
         local vals = {}
         for _, c in ipairs(cartas_a_jugar) do table.insert(vals, c.valor) end
@@ -195,7 +196,7 @@ function combate.jugar_cartas(state, indices)
         dano_total = math.floor(dmg_par * mult_base * mult_final + dmg_solo)
         state.danoMulti = mult_base
     else
-        local mult = mult_base * mult_final
+        mult = mult_base * mult_final
         state.danoMulti = mult
         dano_total = math.floor(suma_dano * mult)
     end

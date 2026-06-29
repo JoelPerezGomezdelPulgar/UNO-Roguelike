@@ -147,7 +147,7 @@ powers.creacion_magica_avanzada = {
     cooldown = C(3),
     activar = function(state, target)
         local efectos_posibles = {"quemado", "mojado", "veneno", "temporal", "repetitivo", "incesante", "fantasmal", "veloz"}
-        local carta = { valor = objetivo.valor, color = objetivo.color, efectos = {efectos_posibles[math.random(#efectos_posibles)]}, dano_base = objetivo.valor }
+        local carta = { valor = target.valor, color = target.color, efectos = {efectos_posibles[math.random(#efectos_posibles)]}, dano_base = target.valor }
         carta.id = "temp_" .. math.random(99999)
         table.insert(state.jugador.mano, carta)
         return { mensaje = "Carta creada con efecto " .. carta.efectos[1] }
