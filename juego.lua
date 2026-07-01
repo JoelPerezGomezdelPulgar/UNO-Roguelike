@@ -190,6 +190,25 @@ function juego.turno_ia(state)
             state.elusion_activa = nil
         end
 
+        -- Espejo reflector: si todas las cartas son del mismo color
+        if #cartas > 0 then
+            local mismo_color = true
+            local color_ref = cartas[1].color
+            for _, c in ipairs(cartas) do
+                if c.color ~= color_ref then
+                    mismo_color = false
+                    break
+                end
+            end
+            if mismo_color then
+                for _, r in ipairs(state.reliquias or {}) do
+                    if r.on_rival_color_hand then
+                        r.on_rival_color_hand(state, dano)
+                    end
+                end
+            end
+        end
+
         state.jugador.vida = state.jugador.vida - dano
     else
         combate.robar_carta(state, false)
@@ -257,6 +276,27 @@ function metodos_entidades:eliminar_estados(id)
         if def and def.on_remove then def.on_remove(self) end
         self.status[id] = nil
     end
+end
+
+function juego.repetir_carta(state, carta)
+    if carta.efectos then
+        dano = require("combate.damage")
+        for _, ef in ipairs(carta.efectos) do
+            local ef_def = require("cartas.effects")[ef]
+            if ef_def and ef_def.aplicar then
+                ef_def.aplicar(carta, state)
+            end
+            if ef_def and ef_def.on_play then
+                ef_def.on_play(carta, state)
+            end
+        end
+    end
+    local dmg = carta.dano_base or carta.valor
+    for _, r in ipairs(state.reliquias or {}) do
+        if r.on_card_damage then dmg = dmg + r.on_card_damage(carta, state) end
+    end
+    if state.numero_marcado and carta.valor == state.numero_marcado then dmg = dmg + 3 end
+    return dmg
 end
 
 -- Attach methods to entities

@@ -58,7 +58,7 @@ status_effects.veneno = {
     on_turn_end = function(state, cargas, portador)
         local dmg = math.floor(portador.vida_max * 0.01 * cargas)
         if portador:tiene_estados("descomposicion") then
-            dmg = dmg + (portador.status_cargas.descomposicion or 0)
+            dmg = dmg + (portador.status.descomposicion or 0)
         end
         portador.vida = portador.vida - dmg
         return cargas

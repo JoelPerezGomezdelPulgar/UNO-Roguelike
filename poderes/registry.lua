@@ -277,4 +277,13 @@ powers.rafaga_viento = {
     end,
 }
 
+powers.carta_marcada = {
+    id = "carta_marcada", nombre = "Carta marcada",
+    descripcion = "Elige 3 cartas del mazo para robarlas",
+    cooldown = C(3),
+    activar = function(state)
+        return { mensaje = "Selecciona 3 cartas del mazo" }
+    end,
+}
+
 return powers

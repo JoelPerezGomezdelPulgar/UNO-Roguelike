@@ -15,9 +15,9 @@ function combate.iniciar(state)
     state.numero_marcado = nil
     state.ojo_ra_mult = 0
     state.blason_contador = 0
-    state.carta_marcada_activa = false
     state.danoBase = 0
     state.danoMulti = 1
+    state.seleccionando_del_mazo = 0
     state.jugador.vida = state.jugador.vida_max
     state.roboGratis = 0
 
@@ -173,6 +173,15 @@ function combate.jugar_cartas(state, indices)
 
     -- Calcular daño base por carta
     local suma_dano = dano.calcular_dano(cartas_a_jugar, state)
+
+    -- Amuleto de eco: repetir primera carta (daño extra antes del multiplicador)
+    local extra_dano = 0
+    for _, r in ipairs(state.reliquias or {}) do
+        if r.on_first_card and #cartas_a_jugar > 0 then
+            extra_dano = extra_dano + (r.on_first_card(cartas_a_jugar[1], state) or 0)
+        end
+    end
+    suma_dano = suma_dano + extra_dano
     state.danoBase = suma_dano
 
     -- Calcular multiplicador
@@ -193,7 +202,7 @@ function combate.jugar_cartas(state, indices)
         end
         local dmg_par = dano.calcular_dano({cartas_a_jugar[par1], cartas_a_jugar[par2]}, state)
         local dmg_solo = dano.calcular_dano({cartas_a_jugar[solo]}, state)
-        dano_total = math.floor(dmg_par * mult_base * mult_final + dmg_solo)
+        dano_total = math.floor(dmg_par * mult_base * mult_final + dmg_solo + extra_dano)
         state.danoMulti = mult_base
     else
         mult = mult_base * mult_final

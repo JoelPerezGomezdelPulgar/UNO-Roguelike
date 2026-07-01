@@ -191,6 +191,15 @@ function dibujar_combate()
 
     local sx = 20
     local sy = 460
+    local mx, my = love.mouse.getPosition()
+    mx, my = (mx - ox) / s, (my - oy) / s
+    local hand_hover = nil
+    for i, _ in ipairs(state.jugador.mano) do
+        local cx = sx + (i - 1) * (CARTA_W + CARTA_ESPACIO)
+        if mx >= cx and mx <= cx + CARTA_W and my >= sy and my <= sy + CARTA_H then
+            hand_hover = i; break
+        end
+    end
     for i, carta in ipairs(state.jugador.mano) do
         local sel = false
         for _, si in ipairs(selected) do
@@ -198,9 +207,15 @@ function dibujar_combate()
                 sel = true; break
             end
         end
-        dibujar_carta(sx + (i - 1) * (CARTA_W + CARTA_ESPACIO), sy, carta, sel, false)
+        local cx = sx + (i - 1) * (CARTA_W + CARTA_ESPACIO)
+        dibujar_carta(cx, sy, carta, sel, false)
+        if hand_hover == i and not sel then
+            love.graphics.setLineWidth(2)
+            love.graphics.setColor(1, 1, 1)
+            love.graphics.rectangle("line", cx - 2, sy - 2, CARTA_W + 4, CARTA_H + 4)
+        end
         love.graphics.setColor(0.8, 0.8, 0.8)
-        love.graphics.print(tostring(i), sx + (i - 1) * (CARTA_W + CARTA_ESPACIO) + 2, sy + CARTA_H - 14)
+        love.graphics.print(tostring(i), cx + 2, sy + CARTA_H - 14)
     end
 
     -- Botones
@@ -397,7 +412,8 @@ function dibujar_visor_mazo()
     love.graphics.setColor(0, 0, 0, 0.87)
     love.graphics.rectangle("fill", 0, 0, 1000, 700)
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf("MAZO - Click para cerrar", 0, 8, 1000, "center")
+    local titulo = state.seleccionando_del_mazo and state.seleccionando_del_mazo > 0 and ("SELECCIONA " .. state.seleccionando_del_mazo .. " CARTA(S) DEL MAZO") or "MAZO - Click para cerrar"
+    love.graphics.printf(titulo, 0, 8, 1000, "center")
 
     local armor = {}
     for _, c in ipairs(state.jugador.mano or {}) do armor[c] = "mano" end
@@ -405,8 +421,8 @@ function dibujar_visor_mazo()
 
     local color_order = { "Rojo", "Amarillo", "Azul", "Verde" }
     local cw, ch = 60, 90
-    local overlap = 35
     local start_x = 20
+    local avail_width = 940
     local row_y = 45
     local row_h = ch + 18
 
@@ -431,12 +447,29 @@ function dibujar_visor_mazo()
         local hdr = color_name .. " (" .. #band .. ")"
         love.graphics.print(hdr, start_x, row_y)
 
-        -- cards
+        -- cards con solapamiento responsive
+        local overlap = #band > 1 and math.min(60, math.max(35, (avail_width - cw) / (#band - 1))) or 0
+        local mx, my = love.mouse.getPosition()
+        mx, my = (mx - ox) / s, (my - oy) / s
+        local hover_idx = nil
+        for i = #band, 1, -1 do
+            local x = start_x + (i - 1) * overlap
+            local y = row_y + 16
+            if band[i].loc == "mazo" and mx >= x and mx <= x + cw and my >= y and my <= y + ch then
+                hover_idx = i; break
+            end
+        end
         for i, entry in ipairs(band) do
             local x = start_x + (i - 1) * overlap
             local y = row_y + 16
             local en_mazo = entry.loc == "mazo"
             dibujar_carta(x, y, entry.card, false, false, cw, ch)
+
+            if hover_idx == i then
+                love.graphics.setLineWidth(2)
+                love.graphics.setColor(1, 1, 1)
+                love.graphics.rectangle("line", x - 2, y - 2, cw + 4, ch + 4)
+            end
 
             if not en_mazo then
                 love.graphics.setColor(0, 0, 0, 0.55)
@@ -540,7 +573,65 @@ end
 
 function manejar_click_combate(mx, my)
     if state.mostrando_mazo then
+        if state.seleccionando_del_mazo and state.seleccionando_del_mazo > 0 then
+            local cw, ch, start_x = 60, 90, 20
+            local avail_width = 940
+            local color_order = { "Rojo", "Amarillo", "Azul", "Verde" }
+            local row_y = 45
+            local row_h = ch + 18
+            for _, color_name in ipairs(color_order) do
+                local band = {}
+                for _, c in ipairs(state.mazo_jugador or {}) do
+                    if c.color == color_name then table.insert(band, { card = c, loc = "mazo" }) end
+                end
+                for _, c in ipairs(state.jugador.mano or {}) do
+                    if c.color == color_name then table.insert(band, { card = c, loc = "mano" }) end
+                end
+                for _, c in ipairs(state.mesa or {}) do
+                    if c.es_jugador and c.color == color_name then table.insert(band, { card = c, loc = "mesa" }) end
+                end
+                table.sort(band, function(a, b)
+                    if a.card.valor ~= b.card.valor then return a.card.valor < b.card.valor end
+                    return a.card.id < b.card.id
+                end)
+                local overlap = #band > 1 and math.min(60, math.max(35, (avail_width - cw) / (#band - 1))) or 0
+                for i = #band, 1, -1 do
+                    local entry = band[i]
+                    local en_mazo = entry.loc == "mazo"
+                    local x = start_x + (i - 1) * overlap
+                    local y = row_y + 16
+                    if en_mazo and mx >= x and mx <= x + cw and my >= y and my <= y + ch then
+                        for j, c in ipairs(state.mazo_jugador) do
+                            if c == entry.card then
+                                table.remove(state.mazo_jugador, j)
+                                c.es_robada = true
+                                table.insert(state.jugador.mano, c)
+                                break
+                            end
+                        end
+                        state.seleccionando_del_mazo = state.seleccionando_del_mazo - 1
+                        if state.seleccionando_del_mazo <= 0 then
+                            state.mostrando_mazo = false
+                            mensaje = "3 cartas robadas del mazo"
+                            mensaje_timer = 120
+                        else
+                            mensaje = "Elige " .. state.seleccionando_del_mazo .. " carta(s) más"
+                            mensaje_timer = 180
+                        end
+                        return
+                    end
+                end
+                row_y = row_y + row_h
+            end
+            -- Click en espacio vacío: salir
+            state.mostrando_mazo = false
+            state.seleccionando_del_mazo = 0
+            mensaje = "Selección cancelada"
+            mensaje_timer = 90
+            return
+        end
         state.mostrando_mazo = false
+        state.seleccionando_del_mazo = 0
         return
     end
 
@@ -600,6 +691,14 @@ function manejar_click_combate(mx, my)
                 accion_pendiente = { type = "marcaje", idx = i }
                 mensaje = "Selecciona una carta de tu mano para marcar su número"
                 mensaje_timer = 180
+                return
+            end
+            if p.id == "carta_marcada" then
+                state.seleccionando_del_mazo = 3
+                state.mostrando_mazo = true
+                juego.usar_poder(state, i)
+                mensaje = "Elige 3 cartas del mazo"
+                mensaje_timer = 240
                 return
             end
             local resultado = juego.usar_poder(state, i)
@@ -767,13 +866,13 @@ function love.keypressed(key)
             selected = {}
         end
         if key == "p" then
-            if state.jugador.status and state.jugador.status.veneno then
-                state.jugador.status.veneno = nil
-                mensaje = "Antídoto funcionó! Veneno eliminado."
-                mensaje_timer = 180
-            else
-                state.jugador:aplicar_estados("veneno", 5)
-                mensaje = "Te infligiste Veneno x5"
+            local power_def = require("poderes.registry").carta_marcada
+            if power_def then
+                table.insert(state.poderes, {
+                    id = power_def.id,
+                    cooldown_actual = 0,
+                })
+                mensaje = "DEBUG: Poder 'Carta marcada' añadido"
                 mensaje_timer = 180
             end
         end
@@ -815,8 +914,7 @@ function love.keypressed(key)
                 [22] = "amuleto_eco",
                 [23] = "lente_aumento",
                 [24] = "piedra_iman",
-                [25] = "carta_marcada",
-                [26] = "sello_sangre",
+                [25] = "sello_sangre",
                 [27] = "bolsa_arena",
                 [28] = "colmillo_plata",
                 [29] = "pendulo_lunar",

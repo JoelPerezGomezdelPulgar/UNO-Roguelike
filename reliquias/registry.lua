@@ -245,10 +245,11 @@ relics.amuleto_eco = {
     rareza = "legendario",
     descripcion = "La primera carta que juegues se reactiva 2 veces",
     on_first_card = function(carta, state)
+        local extra = 0
         for i = 1, 2 do
-            -- re-play the card logic
-            state:repetir_carta(carta)
+            extra = extra + require("juego").repetir_carta(state, carta)
         end
+        return extra
     end
 }
 
@@ -264,23 +265,15 @@ relics.piedra_iman = {
     id = "piedra_iman",
     nombre = "Piedra imán",
     rareza = "comun",
-    descripcion = "+1 daño si todas las cartas jugadas son del mismo color que la última",
+    descripcion = "x2 daño si todas las cartas jugadas son del mismo color que la última",
     on_post_mult = function(state, cartas)
         if #cartas < 2 then return 1 end
         local color = cartas[#cartas].color
         for _, c in ipairs(cartas) do
             if c.color ~= color then return 1 end
         end
-        return 1 + (#cartas * 1)
+        return 2
     end
-}
-
-relics.carta_marcada = {
-    id = "carta_marcada",
-    nombre = "Carta marcada",
-    rareza = "raro",
-    descripcion = "Primera robada del combate la puedes escoger",
-    on_first_draw = function(state) state.carta_marcada_activa = true end
 }
 
 relics.sello_sangre = {
